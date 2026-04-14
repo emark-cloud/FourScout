@@ -1,0 +1,5 @@
+[
+  {"constant":true,"inputs":[{"name":"agent","type":"address"}],"name":"isAgent","outputs":[{"name":"","type":"bool"}],"type":"function"},
+  {"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"nftCount","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[{"name":"owner","type":"address"},{"name":"index","type":"uint256"}],"name":"nftAt","outputs":[{"name":"","type":"uint256"}],"type":"function"}
+]

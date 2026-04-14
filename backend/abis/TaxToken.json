@@ -1,0 +1,11 @@
+[
+  {"constant":true,"inputs":[],"name":"feeRate","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"rateFounder","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"rateHolder","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"rateBurn","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"rateLiquidity","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"minDispatch","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"minShare","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"quote","outputs":[{"name":"","type":"address"}],"type":"function"},
+  {"constant":true,"inputs":[],"name":"founder","outputs":[{"name":"","type":"address"}],"type":"function"}
+]

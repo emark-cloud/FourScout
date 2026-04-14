@@ -1,0 +1,9 @@
+[
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":true,"name":"creator","type":"address"},{"indexed":false,"name":"name","type":"string"},{"indexed":false,"name":"symbol","type":"string"}],"name":"TokenCreate","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":true,"name":"buyer","type":"address"},{"indexed":false,"name":"fundsAmount","type":"uint256"},{"indexed":false,"name":"tokenAmount","type":"uint256"}],"name":"TokenPurchase","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":true,"name":"seller","type":"address"},{"indexed":false,"name":"fundsAmount","type":"uint256"},{"indexed":false,"name":"tokenAmount","type":"uint256"}],"name":"TokenSale","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"name":"token","type":"address"},{"indexed":false,"name":"liquidity","type":"uint256"}],"name":"LiquidityAdded","type":"event"},
+  {"constant":false,"inputs":[{"name":"token","type":"address"},{"name":"minTokenAmount","type":"uint256"}],"name":"buyToken","outputs":[],"payable":true,"type":"function"},
+  {"constant":false,"inputs":[{"name":"token","type":"address"}],"name":"buyTokenAMAP","outputs":[],"payable":true,"type":"function"},
+  {"constant":false,"inputs":[{"name":"token","type":"address"},{"name":"tokenAmount","type":"uint256"},{"name":"minFundsAmount","type":"uint256"}],"name":"sellToken","outputs":[],"type":"function"}
+]

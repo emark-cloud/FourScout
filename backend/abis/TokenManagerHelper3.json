@@ -1,0 +1,5 @@
+[
+  {"constant":true,"inputs":[{"name":"token","type":"address"}],"name":"getTokenInfo","outputs":[{"components":[{"name":"version","type":"uint8"},{"name":"tokenManager","type":"address"},{"name":"quote","type":"address"},{"name":"lastPrice","type":"uint256"},{"name":"tradingFeeRate","type":"uint256"},{"name":"launchTime","type":"uint256"},{"name":"offers","type":"uint256"},{"name":"maxOffers","type":"uint256"},{"name":"funds","type":"uint256"},{"name":"maxFunds","type":"uint256"},{"name":"liquidityAdded","type":"bool"}],"name":"info","type":"tuple"}],"type":"function"},
+  {"constant":true,"inputs":[{"name":"token","type":"address"},{"name":"fundsAmount","type":"uint256"}],"name":"tryBuy","outputs":[{"name":"tokenAmount","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[{"name":"token","type":"address"},{"name":"tokenAmount","type":"uint256"}],"name":"trySell","outputs":[{"name":"fundsAmount","type":"uint256"}],"type":"function"}
+]

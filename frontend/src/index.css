@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/* Binance-inspired dark theme */
+:root {
+  --bg-primary: #0B0E11;
+  --bg-secondary: #1E2329;
+  --bg-card: #2B3139;
+  --bg-hover: #363C44;
+  --text-primary: #EAECEF;
+  --text-secondary: #848E9C;
+  --accent-gold: #F0B90B;
+  --accent-green: #0ECB81;
+  --accent-red: #F6465D;
+  --accent-amber: #F0B90B;
+  --border: #2B3139;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}

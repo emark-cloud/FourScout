@@ -1,6 +1,7 @@
 """Token endpoints."""
 
 from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 from database import get_db
 
 router = APIRouter(tags=["tokens"])
@@ -40,7 +41,7 @@ async def get_token(address: str):
         cursor = await db.execute("SELECT * FROM tokens WHERE address = ?", (address,))
         token = await cursor.fetchone()
         if not token:
-            return {"error": "Token not found"}, 404
+            return JSONResponse(content={"error": "Token not found"}, status_code=404)
 
         token_dict = dict(token)
 

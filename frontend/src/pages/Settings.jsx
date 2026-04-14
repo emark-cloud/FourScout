@@ -13,6 +13,7 @@ export default function Settings() {
   const [config, setConfig] = useState({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
   useEffect(() => {
     getConfig().then(setConfig).catch(console.error)
@@ -20,12 +21,14 @@ export default function Settings() {
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError(null)
     try {
       await updateConfigBulk(config)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
       console.error('Save error:', e)
+      setSaveError('Failed to save settings. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -86,6 +89,7 @@ export default function Settings() {
               <input
                 type={type}
                 step={step}
+                min="0"
                 value={config[key] || ''}
                 onChange={(e) => update(key, e.target.value)}
                 className="w-32 bg-[var(--bg-secondary)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] text-right outline-none focus:border-[var(--accent-gold)]"
@@ -94,6 +98,11 @@ export default function Settings() {
           ))}
         </div>
       </section>
+
+      {/* Error message */}
+      {saveError && (
+        <p className="text-[#F6465D] text-sm mb-3">{saveError}</p>
+      )}
 
       {/* Save button */}
       <button

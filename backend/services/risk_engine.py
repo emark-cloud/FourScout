@@ -365,11 +365,21 @@ async def score_token(token_address: str, ws_manager=None):
         result = await compute_risk_score(token_address, token_data)
         now = datetime.now(timezone.utc).isoformat()
 
+        # Generate LLM rationale
+        risk_detail = {s["name"]: s for s in result.signals}
+        rationale = result.primary_risk  # fallback
+        try:
+            from services.llm_service import get_llm_service
+            llm = get_llm_service()
+            rationale = await llm.generate_rationale(token_data, risk_detail)
+        except Exception as e:
+            print(f"[RiskEngine] LLM rationale error: {e}")
+
         # Update token with risk score
         await db.execute(
-            """UPDATE tokens SET risk_score = ?, risk_detail = ?, last_checked = ?
+            """UPDATE tokens SET risk_score = ?, risk_detail = ?, risk_rationale = ?, last_checked = ?
                WHERE address = ?""",
-            (result.grade, json.dumps({s["name"]: s for s in result.signals}), now, token_address),
+            (result.grade, json.dumps(risk_detail), rationale, now, token_address),
         )
 
         # Log scan event

@@ -7,7 +7,7 @@ export default function BudgetBar({ used = 0, max = 0.3, trades = 0, positions =
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm text-[var(--text-secondary)]">Daily Budget</span>
         <span className="text-sm font-medium" style={{ color }}>
-          {used.toFixed(3)} / {max} BNB
+          {used.toFixed(3)} / {Number(max).toFixed(3)} BNB
         </span>
       </div>
       <div className="h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden mb-3">

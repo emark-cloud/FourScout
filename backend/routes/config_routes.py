@@ -1,6 +1,7 @@
 """Configuration endpoints."""
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from database import get_all_config, set_config_value
 
@@ -27,7 +28,7 @@ async def update_config(update: ConfigUpdate):
         "min_liquidity_usd",
     }
     if update.key not in valid_keys:
-        return {"error": f"Invalid config key. Valid keys: {valid_keys}"}, 400
+        return JSONResponse(content={"error": f"Invalid config key. Valid keys: {sorted(valid_keys)}"}, status_code=400)
 
     await set_config_value(update.key, update.value)
     return {"status": "ok", "key": update.key, "value": update.value}

@@ -8,6 +8,7 @@ export default function OpportunityDetail() {
   const [token, setToken] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -26,12 +27,14 @@ export default function OpportunityDetail() {
   const handleApprove = async () => {
     if (!token?.pending_action) return
     setActionLoading(true)
+    setActionError(null)
     try {
       await approveAction(token.pending_action.id)
       const data = await getToken(address)
       setToken(data)
     } catch (e) {
       console.error('Approve error:', e)
+      setActionError('Failed to approve action. Please try again.')
     } finally {
       setActionLoading(false)
     }
@@ -40,12 +43,14 @@ export default function OpportunityDetail() {
   const handleReject = async () => {
     if (!token?.pending_action) return
     setActionLoading(true)
+    setActionError(null)
     try {
       await rejectAction(token.pending_action.id)
       const data = await getToken(address)
       setToken(data)
     } catch (e) {
       console.error('Reject error:', e)
+      setActionError('Failed to reject action. Please try again.')
     } finally {
       setActionLoading(false)
     }
@@ -177,6 +182,9 @@ export default function OpportunityDetail() {
           </div>
           {token.pending_action.rationale && (
             <p className="text-[var(--text-secondary)] text-sm mb-4">{token.pending_action.rationale}</p>
+          )}
+          {actionError && (
+            <p className="text-[#F6465D] text-sm mb-3">{actionError}</p>
           )}
           <div className="flex gap-3">
             <button

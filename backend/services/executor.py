@@ -21,8 +21,19 @@ async def execute_approved_action(action: dict) -> dict:
         if action_type == "buy":
             # Convert BNB to Wei
             funds_wei = str(int(amount_bnb * 10**18))
-            # Use 0 as min amount (slippage handled by CLI)
-            result = await cli.buy_by_funds(token_address, funds_wei, "0")
+
+            # Get quote to compute min amount with slippage protection
+            slippage_pct = float(action.get("slippage", 5))
+            min_amount_wei = "0"
+            try:
+                quote = await cli.quote_buy(token_address, funds_wei)
+                estimated = int(quote.get("amount", 0) or quote.get("tokenAmount", 0) or 0)
+                if estimated > 0:
+                    min_amount_wei = str(int(estimated * (1 - slippage_pct / 100)))
+            except Exception as e:
+                print(f"[Executor] Quote failed, proceeding without slippage protection: {e}")
+
+            result = await cli.buy_by_funds(token_address, funds_wei, min_amount_wei)
 
             tx_hash = result.get("txHash", result.get("hash", ""))
 

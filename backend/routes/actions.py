@@ -3,6 +3,7 @@
 import json
 from datetime import datetime, timezone
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from database import get_db
 
@@ -38,7 +39,7 @@ async def approve_action(req: ActionResponse):
         )
         action = await cursor.fetchone()
         if not action:
-            return {"error": "Action not found or already resolved"}, 404
+            return JSONResponse(content={"error": "Action not found or already resolved"}, status_code=404)
 
         now = datetime.now(timezone.utc).isoformat()
 
@@ -75,7 +76,7 @@ async def reject_action(req: ActionResponse):
         )
         action = await cursor.fetchone()
         if not action:
-            return {"error": "Action not found or already resolved"}, 404
+            return JSONResponse(content={"error": "Action not found or already resolved"}, status_code=404)
 
         now = datetime.now(timezone.utc).isoformat()
 

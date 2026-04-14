@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import TokenCard from '../components/TokenCard'
 import BudgetBar from '../components/BudgetBar'
-import { getTokens, getConfig, getPositions, getAvoidedStats } from '../services/api'
+import { getTokens, getConfig, getPositions, getAvoidedStats, getDailyTradeStats } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 
 const PERSONA_LABELS = {
@@ -13,26 +13,28 @@ const PERSONA_LABELS = {
 export default function Dashboard() {
   const [tokens, setTokens] = useState([])
   const [config, setConfig] = useState({})
-  const [stats, setStats] = useState({ trades: 0, positions: 0, avoided: 0, savings: 0 })
+  const [stats, setStats] = useState({ trades: 0, positions: 0, avoided: 0, savings: 0, spent: 0 })
   const [loading, setLoading] = useState(true)
   const { isConnected: wsConnected } = useWebSocket()
 
   useEffect(() => {
     async function load() {
       try {
-        const [tokenData, configData, posData, avoidedData] = await Promise.all([
+        const [tokenData, configData, posData, avoidedData, dailyData] = await Promise.all([
           getTokens({ limit: 30 }).catch(() => []),
           getConfig().catch(() => ({})),
           getPositions('active').catch(() => []),
           getAvoidedStats().catch(() => ({ confirmed_rugs: 0, estimated_savings_bnb: 0 })),
+          getDailyTradeStats().catch(() => ({ spent_today_bnb: 0, trades_today: 0 })),
         ])
         setTokens(tokenData)
         setConfig(configData)
         setStats({
-          trades: 0,
+          trades: dailyData.trades_today,
           positions: posData.length,
           avoided: avoidedData.confirmed_rugs,
           savings: avoidedData.estimated_savings_bnb,
+          spent: dailyData.spent_today_bnb,
         })
       } catch (e) {
         console.error('Dashboard load error:', e)
@@ -81,7 +83,7 @@ export default function Dashboard() {
       {/* Budget bar */}
       <div className="mb-6">
         <BudgetBar
-          used={0}
+          used={stats.spent}
           max={parseFloat(config.max_per_day_bnb || 0.3)}
           trades={stats.trades}
           positions={stats.positions}

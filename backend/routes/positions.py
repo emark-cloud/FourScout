@@ -1,5 +1,7 @@
 """Position tracking endpoints."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Query
 from database import get_db
 
@@ -25,5 +27,24 @@ async def list_positions(
             )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+    finally:
+        await db.close()
+
+
+@router.get("/trades/daily")
+async def daily_trade_stats():
+    """Get today's trade count and total BNB spent."""
+    db = await get_db()
+    try:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        cursor = await db.execute(
+            "SELECT COALESCE(SUM(amount_bnb), 0) as spent, COUNT(*) as count FROM trades WHERE executed_at >= ?",
+            (today,),
+        )
+        row = await cursor.fetchone()
+        return {
+            "spent_today_bnb": round(row["spent"], 6),
+            "trades_today": row["count"],
+        }
     finally:
         await db.close()

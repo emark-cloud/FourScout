@@ -77,5 +77,8 @@ export const addWatchlistItem = (item) =>
 export const removeWatchlistItem = (id) =>
   request(`/watchlist/${id}`, { method: 'DELETE' })
 
+// Daily trade stats
+export const getDailyTradeStats = () => request('/trades/daily')
+
 // Health
 export const getHealth = () => request('/health')

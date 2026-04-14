@@ -112,3 +112,9 @@ class FourMemeAPI:
 
     async def close(self):
         await self.client.aclose()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        await self.close()

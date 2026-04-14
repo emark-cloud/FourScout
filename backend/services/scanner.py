@@ -14,12 +14,15 @@ async def start_scanner(ws_manager):
 
     api = FourMemeAPI()
 
-    while True:
-        try:
-            await scan_new_tokens(api, ws_manager)
-        except Exception as e:
-            print(f"[Scanner] Error: {e}")
-        await asyncio.sleep(settings.scan_interval_seconds)
+    try:
+        while True:
+            try:
+                await scan_new_tokens(api, ws_manager)
+            except Exception as e:
+                print(f"[Scanner] Error: {e}")
+            await asyncio.sleep(settings.scan_interval_seconds)
+    finally:
+        await api.close()
 
 
 async def scan_new_tokens(api, ws_manager):
@@ -114,11 +117,14 @@ async def scan_new_tokens(api, ws_manager):
         unscored = await cursor.fetchall()
         if unscored:
             from services.risk_engine import score_token
-            for row in unscored:
+
+            async def _safe_score(addr):
                 try:
-                    await score_token(row["address"], ws_manager)
+                    await score_token(addr, ws_manager)
                 except Exception as e:
-                    print(f"[Scanner] Scoring error for {row['address']}: {e}")
+                    print(f"[Scanner] Scoring error for {addr}: {e}")
+
+            await asyncio.gather(*[_safe_score(row["address"]) for row in unscored])
 
     finally:
         await db.close()

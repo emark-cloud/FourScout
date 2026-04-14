@@ -39,7 +39,8 @@ async def scan_new_tokens(api, ws_manager):
         new_count = 0
 
         for token in tokens:
-            address = token.get("address", "")
+            # Four.meme API uses tokenAddress, userAddress, createDate
+            address = token.get("tokenAddress", "") or token.get("address", "")
             if not address:
                 continue
 
@@ -51,6 +52,24 @@ async def scan_new_tokens(api, ws_manager):
             if existing:
                 continue
 
+            # Convert createDate (ms timestamp string) to ISO string
+            create_date = token.get("createDate", 0)
+            launch_time = ""
+            if create_date:
+                try:
+                    ts_ms = int(create_date)
+                    launch_time = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat()
+                except (ValueError, TypeError, OSError):
+                    launch_time = str(create_date)
+
+            try:
+                progress = float(token.get("progress", 0) or 0)
+            except (ValueError, TypeError):
+                progress = 0.0
+            # Progress from API is 0-100, store as 0-1 float
+            if progress > 1:
+                progress = progress / 100.0
+
             # New token — store it
             await db.execute(
                 """INSERT INTO tokens (address, name, symbol, creator_address, launch_time,
@@ -59,11 +78,11 @@ async def scan_new_tokens(api, ws_manager):
                 (
                     address,
                     token.get("name", ""),
-                    token.get("symbol", ""),
-                    token.get("creator", ""),
-                    token.get("launchTime", ""),
-                    token.get("progress", 0),
-                    1 if token.get("graduated") else 0,
+                    token.get("shortName", "") or token.get("symbol", ""),
+                    token.get("userAddress", "") or token.get("creator", ""),
+                    launch_time,
+                    progress,
+                    1 if token.get("status") == "GRADUATED" else 0,
                     now,
                 ),
             )
@@ -71,7 +90,7 @@ async def scan_new_tokens(api, ws_manager):
             # Log activity
             await db.execute(
                 "INSERT INTO activity (event_type, token_address, detail, created_at) VALUES (?, ?, ?, ?)",
-                ("new_token", address, json.dumps({"name": token.get("name", ""), "symbol": token.get("symbol", "")}), now),
+                ("new_token", address, json.dumps({"name": token.get("name", ""), "symbol": token.get("shortName", "")}), now),
             )
 
             new_count += 1
@@ -80,8 +99,8 @@ async def scan_new_tokens(api, ws_manager):
             await ws_manager.broadcast("new_token", {
                 "address": address,
                 "name": token.get("name", ""),
-                "symbol": token.get("symbol", ""),
-                "progress": token.get("progress", 0),
+                "symbol": token.get("shortName", ""),
+                "progress": progress,
             })
 
         if new_count > 0:

@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from config import settings, Contracts
 
@@ -19,6 +20,7 @@ class BSCWeb3Client:
 
     def __init__(self):
         self.w3 = Web3(Web3.HTTPProvider(settings.bsc_rpc_url))
+        self.w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
         # Load ABIs
         self.erc20_abi = _load_abi("ERC20")
         self.token_manager2_abi = _load_abi("TokenManager2")
@@ -44,20 +46,63 @@ class BSCWeb3Client:
         """Get token info from TokenManagerHelper3."""
         try:
             addr = Web3.to_checksum_address(token_address)
-            info = self.helper3.functions.getTokenInfo(addr).call()
-            return {
-                "version": info[0],
-                "tokenManager": info[1],
-                "quote": info[2],
-                "lastPrice": info[3],
-                "tradingFeeRate": info[4],
-                "launchTime": info[5],
-                "offers": info[6],
-                "maxOffers": info[7],
-                "funds": info[8],
-                "maxFunds": info[9],
-                "liquidityAdded": info[10],
-            }
+            try:
+                info = self.helper3.functions.getTokenInfo(addr).call()
+                return {
+                    "version": info[0],
+                    "tokenManager": info[1],
+                    "quote": info[2],
+                    "lastPrice": info[3],
+                    "tradingFeeRate": info[4],
+                    "launchTime": info[5],
+                    "offers": info[6],
+                    "maxOffers": info[7],
+                    "funds": info[8],
+                    "maxFunds": info[9],
+                    "liquidityAdded": info[10],
+                }
+            except Exception:
+                # V2 tokens return a 12-field struct (extra field at index 5)
+                # that web3.py can't decode with the 11-field ABI. Raw decode.
+                selector = self.w3.keccak(text="getTokenInfo(address)")[:4]
+                padded = bytes.fromhex(addr[2:].zfill(64))
+                raw = self.w3.eth.call({"to": self.helper3.address, "data": selector + padded})
+                if len(raw) < 352:
+                    return {}
+                words = [int.from_bytes(raw[i : i + 32], "big") for i in range(0, len(raw), 32)]
+                n = len(words)
+                def _addr(val):
+                    return Web3.to_checksum_address("0x" + hex(val)[2:].zfill(40)) if val else "0x" + "0" * 40
+                if n >= 12:
+                    # 12-field V2: extra field between tradingFeeRate and launchTime
+                    return {
+                        "version": words[0],
+                        "tokenManager": _addr(words[1]),
+                        "quote": _addr(words[2]),
+                        "lastPrice": words[3],
+                        "tradingFeeRate": words[4],
+                        "launchTime": words[6],
+                        "offers": words[7],
+                        "maxOffers": words[8],
+                        "funds": words[9],
+                        "maxFunds": words[10],
+                        "liquidityAdded": bool(words[11]),
+                    }
+                else:
+                    # 11-field layout
+                    return {
+                        "version": words[0],
+                        "tokenManager": _addr(words[1]),
+                        "quote": _addr(words[2]),
+                        "lastPrice": words[3],
+                        "tradingFeeRate": words[4],
+                        "launchTime": words[5],
+                        "offers": words[6],
+                        "maxOffers": words[7],
+                        "funds": words[8],
+                        "maxFunds": words[9],
+                        "liquidityAdded": bool(words[10]),
+                    }
         except Exception as e:
             print(f"[Web3] getTokenInfo error for {token_address}: {e}")
             return {}

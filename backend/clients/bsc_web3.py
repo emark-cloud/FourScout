@@ -107,6 +107,18 @@ class BSCWeb3Client:
             print(f"[Web3] getTokenInfo error for {token_address}: {e}")
             return {}
 
+    def get_token_balance(self, token_address: str) -> int | None:
+        """Get the agent wallet's exact token balance (in wei) for selling."""
+        try:
+            addr = Web3.to_checksum_address(token_address)
+            token_contract = self.w3.eth.contract(address=addr, abi=self.erc20_abi)
+            from eth_account import Account
+            wallet = Account.from_key(settings.private_key).address
+            return token_contract.functions.balanceOf(Web3.to_checksum_address(wallet)).call()
+        except Exception as e:
+            print(f"[BSCWeb3] get_token_balance error: {e}")
+            return None
+
     def get_holder_balances(self, token_address: str, top_n: int = 10) -> dict:
         """Get holder concentration data for a token.
 

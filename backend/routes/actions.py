@@ -61,8 +61,9 @@ async def approve_action(req: ActionResponse):
         mark_session_approved()
 
         # Trigger execution (imported here to avoid circular imports)
+        from main import ws_manager
         from services.executor import execute_approved_action
-        result = await execute_approved_action(dict(action))
+        result = await execute_approved_action(dict(action), ws_manager)
 
         return {"status": "approved", "action_id": req.action_id, "result": result}
     finally:

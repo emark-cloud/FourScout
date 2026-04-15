@@ -111,7 +111,15 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             if token_amount <= 0:
                 return {"status": "error", "message": "No token amount to sell"}
 
-            amount_wei = str(int(token_amount * 10**18))
+            # Use exact on-chain balance to avoid floating-point precision loss
+            from clients.bsc_web3 import BSCWeb3Client
+            web3_client = BSCWeb3Client()
+            on_chain_balance = web3_client.get_token_balance(token_address)
+            if on_chain_balance and on_chain_balance > 0:
+                amount_wei = str(on_chain_balance)
+                token_amount = on_chain_balance / 10**18
+            else:
+                amount_wei = str(int(token_amount * 10**18))
 
             # Look up the active position
             cursor = await db.execute(

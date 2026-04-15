@@ -26,7 +26,21 @@ async def list_positions(
                 (status, limit),
             )
         rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+        positions = [dict(row) for row in rows]
+
+        # Attach pending sell actions to active positions
+        for pos in positions:
+            if pos["status"] == "active":
+                sell_cursor = await db.execute(
+                    "SELECT * FROM pending_actions WHERE token_address = ? AND action_type = 'sell' AND status = 'pending' ORDER BY created_at DESC LIMIT 1",
+                    (pos["token_address"],),
+                )
+                sell_action = await sell_cursor.fetchone()
+                pos["pending_sell"] = dict(sell_action) if sell_action else None
+            else:
+                pos["pending_sell"] = None
+
+        return positions
     finally:
         await db.close()
 

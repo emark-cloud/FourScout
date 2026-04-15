@@ -48,13 +48,14 @@
 - [x] End-to-end buy loop: scanner → score → propose → approve → buy on-chain → position tracked (verified with 0.0001 BNB)
 
 ### Sell Flow & Position Management
-- [ ] Complete sell executor: sell quote for slippage protection, position closure, trade recording, PnL fields
-- [ ] Configurable take-profit/stop-loss thresholds (user-settable in Settings, replaces hardcoded 100%/-50%)
-- [ ] Auto-sell mode: automatic execution at thresholds without requiring approval
-- [ ] AI-driven position monitoring: Gemini analyzes positions every 5 min, proposes exits with reasoning
+- [x] Complete sell executor: sell quote for slippage protection, position closure, trade recording, PnL fields
+- [x] Configurable take-profit/stop-loss thresholds (user-settable in Settings, replaces hardcoded 100%/-50%)
+- [x] Auto-sell mode: automatic execution at thresholds without requiring approval
+- [x] AI-driven position monitoring: Gemini analyzes positions every 5 min, proposes exits with reasoning
   - Drift detection: PnL approaching thresholds, stale positions, holder concentration changes
   - Capped at 3 LLM calls per cycle (stays within 15 RPM free tier)
-- [ ] End-to-end sell loop: position tracker proposes → approve/auto-sell → execute → position closed
+- [x] Sell action approve/reject UI on Positions page
+- [x] End-to-end sell loop: position tracker proposes → approve → execute on-chain → position closed (verified with 0.0001 BNB)
 
 ### AI Depth (competitive edge — targets Innovation criterion)
 - [x] Interactive AI chat advisor: backend `/api/chat` endpoint + frontend ChatPanel component
@@ -69,7 +70,7 @@
   - `deep_analyze_amber()` returns recommendation (lean_buy/lean_skip/watch) with confidence + analysis
 
 ### Real-Time Alerting
-- [ ] Toast notification system: real-time alerts for WebSocket events (trade_executed, action_proposed, risk_alert)
+- [x] Toast notification system: real-time alerts for WebSocket events (trade_executed, action_proposed, risk_alert)
   - Position update toasts filtered to milestones only (50%+, 100%+, -40%+) to prevent spam
   - Max 5 visible, auto-dismiss after 5s, Binance-themed colors
 - [x] `action_proposed` — new trade opportunity pending approval
@@ -81,7 +82,7 @@
 ### Verify Phase 2
 - [x] **Auto-propose pipeline:** scanner → score → persona → approval gate → pending_action (verified: 10+ pending actions auto-created)
 - [x] **Full buy loop:** approve → execute → track position (verified: 0.0001 BNB trade, tx on-chain, position recorded)
-- [ ] **Full sell loop:** position tracker proposes exit → approve/auto-sell → execute → position closed
+- [x] **Full sell loop:** position tracker proposes exit → approve → execute on-chain → position closed (verified with 0.0001 BNB, tx 0x3a7f...6e9f)
 - [x] **AI advisor:** chat endpoint + frontend ChatPanel (graceful fallback without Gemini key)
 - [x] **Live dashboard:** WebSocket events update UI without refresh
 

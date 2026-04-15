@@ -1,27 +1,53 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getPositions } from '../services/api'
+import { getPositions, approveAction, rejectAction } from '../services/api'
 
 export default function Positions() {
   const [positions, setPositions] = useState([])
   const [filter, setFilter] = useState('active')
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(null)
+
+  const loadPositions = async () => {
+    try {
+      const data = await getPositions(filter)
+      setPositions(data)
+    } catch (e) {
+      console.error('Positions load error:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await getPositions(filter)
-        setPositions(data)
-      } catch (e) {
-        console.error('Positions load error:', e)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-    const interval = setInterval(load, 10000)
+    loadPositions()
+    const interval = setInterval(loadPositions, 10000)
     return () => clearInterval(interval)
   }, [filter])
+
+  const handleApprove = async (actionId) => {
+    setActionLoading(actionId)
+    try {
+      await approveAction(actionId)
+      await loadPositions()
+    } catch (e) {
+      console.error('Sell approve error:', e)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleReject = async (actionId) => {
+    setActionLoading(actionId)
+    try {
+      await rejectAction(actionId)
+      await loadPositions()
+    } catch (e) {
+      console.error('Sell reject error:', e)
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const pnlColor = (pnl) => {
     if (!pnl) return 'text-[var(--text-secondary)]'
@@ -70,32 +96,64 @@ export default function Positions() {
             </thead>
             <tbody>
               {positions.map((pos) => (
-                <tr key={pos.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)]">
-                  <td className="px-4 py-3">
-                    <Link to={`/token/${pos.token_address}`} className="text-[var(--accent-gold)] no-underline font-mono text-xs">
-                      {pos.token_address.slice(0, 10)}...
-                    </Link>
-                  </td>
-                  <td className="text-right px-4 py-3 text-[var(--text-primary)]">
-                    {pos.entry_price?.toFixed(8) || '-'}
-                  </td>
-                  <td className="text-right px-4 py-3 text-[var(--text-primary)]">
-                    {pos.current_price?.toFixed(8) || '-'}
-                  </td>
-                  <td className="text-right px-4 py-3 text-[var(--text-primary)]">
-                    {pos.entry_amount_bnb?.toFixed(4) || '-'} BNB
-                  </td>
-                  <td className={`text-right px-4 py-3 font-medium ${pnlColor(pos.pnl_bnb)}`}>
-                    {pos.pnl_bnb != null ? `${pos.pnl_bnb > 0 ? '+' : ''}${pos.pnl_bnb.toFixed(4)} BNB` : '-'}
-                  </td>
-                  <td className="text-right px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded capitalize ${
-                      pos.status === 'active' ? 'bg-[rgba(14,203,129,0.15)] text-[#0ECB81]' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
-                    }`}>
-                      {pos.status}
-                    </span>
-                  </td>
-                </tr>
+                <React.Fragment key={pos.id}>
+                  <tr className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)]">
+                    <td className="px-4 py-3">
+                      <Link to={`/token/${pos.token_address}`} className="text-[var(--accent-gold)] no-underline font-mono text-xs">
+                        {pos.token_address.slice(0, 10)}...
+                      </Link>
+                    </td>
+                    <td className="text-right px-4 py-3 text-[var(--text-primary)]">
+                      {pos.entry_price?.toFixed(8) || '-'}
+                    </td>
+                    <td className="text-right px-4 py-3 text-[var(--text-primary)]">
+                      {pos.current_price?.toFixed(8) || '-'}
+                    </td>
+                    <td className="text-right px-4 py-3 text-[var(--text-primary)]">
+                      {pos.entry_amount_bnb?.toFixed(4) || '-'} BNB
+                    </td>
+                    <td className={`text-right px-4 py-3 font-medium ${pnlColor(pos.pnl_bnb)}`}>
+                      {pos.pnl_bnb != null ? `${pos.pnl_bnb > 0 ? '+' : ''}${pos.pnl_bnb.toFixed(4)} BNB` : '-'}
+                    </td>
+                    <td className="text-right px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded capitalize ${
+                        pos.status === 'active' ? 'bg-[rgba(14,203,129,0.15)] text-[#0ECB81]' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
+                      }`}>
+                        {pos.status}
+                      </span>
+                    </td>
+                  </tr>
+                  {pos.pending_sell && (
+                    <tr className="border-b border-[var(--border)] bg-[rgba(246,70,93,0.05)]">
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-semibold text-[#F6465D] mr-2">SELL PROPOSED</span>
+                            <span className="text-xs text-[var(--text-secondary)] truncate">
+                              {pos.pending_sell.rationale?.slice(0, 100)}
+                            </span>
+                          </div>
+                          <div className="flex gap-2 ml-4 flex-shrink-0">
+                            <button
+                              onClick={() => handleApprove(pos.pending_sell.id)}
+                              disabled={actionLoading === pos.pending_sell.id}
+                              className="px-3 py-1 bg-[#F6465D] text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 disabled:opacity-50"
+                            >
+                              {actionLoading === pos.pending_sell.id ? '...' : 'Sell'}
+                            </button>
+                            <button
+                              onClick={() => handleReject(pos.pending_sell.id)}
+                              disabled={actionLoading === pos.pending_sell.id}
+                              className="px-3 py-1 bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-xs rounded cursor-pointer border border-[var(--border)] hover:text-[var(--text-primary)]"
+                            >
+                              Hold
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

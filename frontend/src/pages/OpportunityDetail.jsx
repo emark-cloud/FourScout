@@ -174,33 +174,56 @@ export default function OpportunityDetail() {
 
         return (
           <div className="bg-[var(--bg-card)] rounded-xl p-6 border-2 border-[var(--accent-gold)] mb-4">
-            <h2 className="text-lg font-semibold text-[var(--accent-gold)] mb-2">
+            <h2 className={`text-lg font-semibold mb-2 ${token.pending_action.action_type === 'sell' ? 'text-[#F6465D]' : 'text-[var(--accent-gold)]'}`}>
               Proposed: {token.pending_action.action_type.toUpperCase()}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-              <div>
-                <span className="text-[var(--text-secondary)]">Amount</span>
-                <p className="text-[var(--text-primary)] font-medium">{token.pending_action.amount_bnb} BNB</p>
-              </div>
-              <div>
-                <span className="text-[var(--text-secondary)]">Slippage</span>
-                <p className="text-[var(--text-primary)] font-medium">{token.pending_action.slippage || 5}%</p>
-              </div>
-              {txPreview?.estimated_tokens > 0 && (
-                <div>
-                  <span className="text-[var(--text-secondary)]">Est. Tokens</span>
-                  <p className="text-[var(--text-primary)] font-medium">
-                    {Number(txPreview.estimated_tokens).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-                </div>
-              )}
-              {txPreview?.min_tokens > 0 && (
-                <div>
-                  <span className="text-[var(--text-secondary)]">Min Tokens</span>
-                  <p className="text-[var(--text-primary)] font-medium">
-                    {Number(txPreview.min_tokens).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-                </div>
+              {token.pending_action.action_type === 'sell' ? (
+                <>
+                  {txPreview?.token_amount > 0 && (
+                    <div>
+                      <span className="text-[var(--text-secondary)]">Selling</span>
+                      <p className="text-[var(--text-primary)] font-medium">
+                        {Number(txPreview.token_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} tokens
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-[var(--text-secondary)]">Entry Cost</span>
+                    <p className="text-[var(--text-primary)] font-medium">{token.pending_action.amount_bnb} BNB</p>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-secondary)]">Slippage</span>
+                    <p className="text-[var(--text-primary)] font-medium">{token.pending_action.slippage || 5}%</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="text-[var(--text-secondary)]">Amount</span>
+                    <p className="text-[var(--text-primary)] font-medium">{token.pending_action.amount_bnb} BNB</p>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-secondary)]">Slippage</span>
+                    <p className="text-[var(--text-primary)] font-medium">{token.pending_action.slippage || 5}%</p>
+                  </div>
+                  {txPreview?.estimated_tokens > 0 && (
+                    <div>
+                      <span className="text-[var(--text-secondary)]">Est. Tokens</span>
+                      <p className="text-[var(--text-primary)] font-medium">
+                        {Number(txPreview.estimated_tokens).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  )}
+                  {txPreview?.min_tokens > 0 && (
+                    <div>
+                      <span className="text-[var(--text-secondary)]">Min Tokens</span>
+                      <p className="text-[var(--text-primary)] font-medium">
+                        {Number(txPreview.min_tokens).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             {token.pending_action.rationale && (
@@ -213,9 +236,13 @@ export default function OpportunityDetail() {
               <button
                 onClick={handleApprove}
                 disabled={actionLoading}
-                className="flex-1 bg-[#0ECB81] text-black font-semibold py-2.5 rounded-lg cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className={`flex-1 font-semibold py-2.5 rounded-lg cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity ${
+                  token.pending_action.action_type === 'sell'
+                    ? 'bg-[#F6465D] text-white'
+                    : 'bg-[#0ECB81] text-black'
+                }`}
               >
-                {actionLoading ? 'Executing...' : 'Approve'}
+                {actionLoading ? 'Executing...' : token.pending_action.action_type === 'sell' ? 'Sell' : 'Approve'}
               </button>
               <button
                 onClick={handleReject}

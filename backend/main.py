@@ -1,4 +1,4 @@
-"""MemeGuard FastAPI backend — main entry point."""
+"""FourScout FastAPI backend — main entry point."""
 
 import json
 import asyncio
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="MemeGuard API",
+    title="FourScout API",
     description="AI trading agent for Four.meme",
     version="0.1.0",
     lifespan=lifespan,

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = Field(default="")
 
     # Database
-    database_path: str = Field(default="./data/memeguard.db")
+    database_path: str = Field(default="./data/fourscout.db")
 
     # Scanner
     scan_interval_seconds: int = Field(default=30)

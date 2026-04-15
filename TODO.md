@@ -1,4 +1,4 @@
-# MemeGuard — Build TODO
+# FourScout — Build TODO
 
 ## Phase 1: Foundation (COMPLETE)
 - [x] Project scaffolding: backend (FastAPI + requirements.txt) + frontend (React/Vite + Tailwind)
@@ -13,7 +13,7 @@
 - [x] Market context client (`backend/clients/market_api.py` — BNB price, Fear & Greed)
 - [x] Scanner service (`backend/services/scanner.py` — 30s polling + event monitoring)
 - [x] Risk scoring engine — all 8 signals with weighted aggregation
-- [x] LLM service (Gemini 2.0 Flash, provider abstraction, fallback rationale)
+- [x] LLM service (Gemini 2.5 Flash, provider abstraction, fallback rationale)
 - [x] Persona engine (3 personas, decide_action rules)
 - [x] Trade executor (buy/sell via CLI, position/trade recording)
 - [x] Backend routes: tokens, config, activity, positions, actions, avoided, watchlist
@@ -29,12 +29,12 @@
 - [x] WebSocket: auto-reconnecting, live push for new tokens and risk scores
 - [x] **Verified:** Scanner discovering and scoring real Four.meme tokens with GREEN/AMBER/RED grades
 
-## Phase 2: The Brain
+## Phase 2: The Brain (COMPLETE)
 **Goal:** End-to-end trade loop with AI depth and position tracking.
 
 ### Core Pipeline (carry-over)
 - [x] Complete risk scoring engine: all 8 signals
-- [x] LLM integration (Gemini) for rationale generation
+- [x] LLM integration (Gemini 2.5 Flash) for rationale generation
 - [x] Opportunity detail page (full risk breakdown + rationale + action)
 - [x] Persona action engine (rules that map score + persona → action)
 - [x] Approval gate system (4 modes — `approval_gate.py`)
@@ -53,7 +53,7 @@
 - [x] Auto-sell mode: automatic execution at thresholds without requiring approval
 - [x] AI-driven position monitoring: Gemini analyzes positions every 5 min, proposes exits with reasoning
   - Drift detection: PnL approaching thresholds, stale positions, holder concentration changes
-  - Capped at 3 LLM calls per cycle (stays within 15 RPM free tier)
+  - Capped at 3 LLM calls per cycle
 - [x] Sell action approve/reject UI on Positions page
 - [x] End-to-end sell loop: position tracker proposes → approve → execute on-chain → position closed (verified with 0.0001 BNB)
 
@@ -85,6 +85,7 @@
 - [x] **Full sell loop:** position tracker proposes exit → approve → execute on-chain → position closed (verified with 0.0001 BNB, tx 0x3a7f...6e9f)
 - [x] **AI advisor:** chat endpoint + frontend ChatPanel (graceful fallback without Gemini key)
 - [x] **Live dashboard:** WebSocket events update UI without refresh
+- [x] **Gemini 2.5 Flash migration:** upgraded from deprecated 2.0 Flash, thinking_budget=0 fix, all 6 AI integration points verified
 
 ## Phase 3: Polish & Demo Features
 **Goal:** Demo-ready with killer differentiators and visual polish. Ordered by judging impact.

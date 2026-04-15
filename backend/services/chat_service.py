@@ -102,7 +102,7 @@ async def chat(message: str, token_address: str | None = None) -> str:
         )
         history_text = f"\nConversation history:\n{history_text}\n"
 
-    prompt = f"""You are MemeGuard's AI Trading Advisor for Four.meme (BNB Chain memecoins).
+    prompt = f"""You are FourScout's AI Trading Advisor for Four.meme (BNB Chain memecoins).
 You help users understand token risks, make trading decisions, and learn about memecoin patterns.
 
 Current context:
@@ -126,7 +126,8 @@ Guidelines:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.4,
-                max_output_tokens=500,
+                max_output_tokens=1024,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         reply = response.text.strip()

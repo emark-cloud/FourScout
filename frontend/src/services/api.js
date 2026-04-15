@@ -1,5 +1,5 @@
 /**
- * Backend API client for MemeGuard.
+ * Backend API client for FourScout.
  */
 
 const BASE_URL = '/api'

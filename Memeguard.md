@@ -1,4 +1,4 @@
-# MemeGuard — Four.meme AI Agent Console
+# FourScout — Four.meme AI Agent Console
 
 ## Synthesized MVP Specification
 
@@ -11,7 +11,7 @@
 
 ## 1. What This Is
 
-MemeGuard is a persona-based AI trading agent for Four.meme that scans new token launches, scores them for risk and opportunity in plain language, and executes trades only within user-approved limits.
+FourScout is a persona-based AI trading agent for Four.meme that scans new token launches, scores them for risk and opportunity in plain language, and executes trades only within user-approved limits.
 
 **Core loop:**
 
@@ -449,7 +449,7 @@ User opens "What I Avoided" tab
 | Database | SQLite (aiosqlite) | Local-first, zero config, sufficient for MVP |
 | On-chain reads | Web3.py | Direct contract calls for risk scoring (TokenManagerHelper3, TokenManager2, TaxToken, ERC20) |
 | Trading | Four.meme CLI (`@four-meme/four-meme-ai`) | Buy/sell execution, price quotes, ERC-8004 registration via subprocess |
-| AI/LLM | Google Gemini 2.0 Flash (free tier, `google-genai` SDK) | Rationale generation, token description analysis, sentiment |
+| AI/LLM | Google Gemini 2.5 Flash (`google-genai` SDK) | Rationale generation, token description analysis, sentiment |
 | Wallet | wagmi + viem (frontend) | Standard BSC wallet connection |
 | Market Data | Four.meme API + CoinGecko + Alternative.me | Token feeds, BNB price, Fear & Greed index |
 | Deploy | Vercel (frontend) + Railway (backend) | Free tier sufficient for demo |
@@ -480,7 +480,7 @@ Use AI where it adds judgment. Use deterministic logic where it doesn't.
 |------|--------|
 | Risk signal computation | Deterministic (Web3.py reads + math) |
 | Score aggregation | Rules engine (weighted scoring, 8 signals) |
-| Rationale generation | LLM (Google Gemini 2.0 Flash) — multi-signal narrative synthesis |
+| Rationale generation | LLM (Google Gemini 2.5 Flash) — multi-signal narrative synthesis |
 | Token description analysis | LLM (classify as legit/scam/hype) |
 | Interactive AI advisor | LLM (Gemini) — context-aware conversational chat about tokens, risks, decisions |
 | Social sentiment | VADER (lightweight, no API key needed) |
@@ -786,7 +786,7 @@ Transaction preview shows exact swap details. Sign with wallet. TX confirms on B
 Switch to the "What I Avoided" tab. Show 4 tokens the agent flagged red earlier in the session. Two have already dropped 90%+. One had liquidity pulled entirely. Running tally: "Avoided 3 confirmed rugs — estimated savings: 0.15 BNB." This is the moment the judge goes "oh, that's useful."
 
 **Scene 6 — Close (15s)**
-Back to dashboard. Show the behavioral summary: "1 trade executed. 3 rugs avoided. 0 overrides." End with tagline: "MemeGuard — your AI sentinel for Four.meme."
+Back to dashboard. Show the behavioral summary: "1 trade executed. 3 rugs avoided. 0 overrides." End with tagline: "FourScout — your AI sentinel for Four.meme."
 
 ---
 
@@ -796,7 +796,7 @@ Back to dashboard. Show the behavioral summary: "1 trade executed. 3 rugs avoide
 
 Projects are evaluated through **expert review (70%)** and **community voting (30%)**.
 
-| Judging Criterion | Weight | How MemeGuard Delivers |
+| Judging Criterion | Weight | How FourScout Delivers |
 |-------------------|--------|----------------------|
 | **Innovation** (originality + depth of AI) | 30% of expert | Interactive AI advisor (conversational, not just labels). Multi-signal narrative synthesis (pattern detection across 8 signals). Escalation pipeline (deterministic core + deep AI for uncertain cases). ERC-8004 on-chain agent identity. |
 | **Technical Implementation** (code quality + demo stability) | 30% of expert | Complete end-to-end pipeline: discover → score → propose → approve → execute → track. 8-signal deterministic risk engine. 4 approval modes. Budget-capped autonomy. Hybrid integration (CLI + Web3.py + REST API). |
@@ -806,7 +806,7 @@ Projects are evaluated through **expert review (70%)** and **community voting (3
 
 ### Core Value Proposition
 
-| Criterion | How MemeGuard Delivers |
+| Criterion | How FourScout Delivers |
 |-----------|----------------------|
 | Real problem | Memecoin traders lose money to rugs daily. Information asymmetry on Four.meme is unsolved. |
 | Narrow scope | Three capabilities: scan, score, execute. Not trying to be everything. |
@@ -924,7 +924,7 @@ FOURMEME_API_BASE=https://four.meme/meme-api/v1
 GEMINI_API_KEY=               # Google Gemini API key (free tier)
 
 # App
-DATABASE_PATH=./data/memeguard.db
+DATABASE_PATH=./data/fourscout.db
 SCAN_INTERVAL_SECONDS=30
 ```
 

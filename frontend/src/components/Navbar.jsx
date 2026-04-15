@@ -19,10 +19,10 @@ export default function Navbar() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 no-underline">
           <div className="w-8 h-8 rounded-lg bg-[var(--accent-gold)] flex items-center justify-center text-black font-bold text-sm">
-            MG
+            FS
           </div>
           <span className="text-[var(--text-primary)] font-semibold text-lg hidden sm:inline">
-            MemeGuard
+            FourScout
           </span>
         </Link>
 

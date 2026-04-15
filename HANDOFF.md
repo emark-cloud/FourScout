@@ -1,4 +1,4 @@
-# MemeGuard — Project Handoff Document
+# FourScout — Project Handoff Document
 
 > Last updated: 2026-04-15
 > Purpose: Everything a new Claude instance needs to continue building this project.
@@ -7,11 +7,11 @@
 
 ## 1. What Is This Project?
 
-MemeGuard is a **persona-based AI trading agent** for the **Four.meme** memecoin launchpad on **BNB Chain (BSC)**. It scans new token launches, scores risk using 8 deterministic signals, explains findings via Google Gemini, and executes trades within user-approved limits.
+FourScout is a **persona-based AI trading agent** for the **Four.meme** memecoin launchpad on **BNB Chain (BSC)**. It scans new token launches, scores risk using 8 deterministic signals, explains findings via Google Gemini, and executes trades within user-approved limits.
 
 Built for the **Four.Meme AI Sprint hackathon** on DoraHacks ($50K prize pool).
 
-**GitHub:** https://github.com/emark-cloud/memeguard
+**GitHub:** https://github.com/emark-cloud/fourscout
 
 ---
 
@@ -32,7 +32,7 @@ Built for the **Four.Meme AI Sprint hackathon** on DoraHacks ($50K prize pool).
 |-------|-----------|
 | Backend | Python FastAPI + SQLite + Web3.py |
 | Frontend | React + Vite + Tailwind CSS (Binance-inspired dark theme) |
-| LLM | Google Gemini 2.0 Flash (free tier, `google-genai` SDK, 15 RPM limit) |
+| LLM | Google Gemini 2.5 Flash (`google-genai` SDK) |
 | On-chain reads | Web3.py (direct contract calls for risk scoring) |
 | Trading | Four.meme CLI (`@four-meme/four-meme-ai`) via subprocess |
 | Wallet | wagmi + viem (frontend BSC wallet connection) |
@@ -202,7 +202,7 @@ cd fourmeme-cli && npm install
 BSC_RPC_URL=https://bsc-dataseed1.binance.org
 PRIVATE_KEY=<hex private key for agent wallet>
 GEMINI_API_KEY=<from https://aistudio.google.com/apikey>
-DATABASE_PATH=./data/memeguard.db
+DATABASE_PATH=./data/fourscout.db
 SCAN_INTERVAL_SECONDS=30
 ```
 

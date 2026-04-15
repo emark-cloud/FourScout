@@ -12,7 +12,7 @@ class LLMService:
     def __init__(self):
         self.provider = "gemini"
         self.client = None
-        self.model = "gemini-2.0-flash"
+        self.model = "gemini-2.5-flash"
         self._init_client()
 
     def _init_client(self):
@@ -71,7 +71,8 @@ Write 2-3 sentences, under 80 words. No disclaimers."""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=200,
+                    max_output_tokens=512,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             return response.text.strip()
@@ -124,7 +125,8 @@ ANALYSIS: [2-3 sentences explaining your reasoning]"""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=300,
+                    max_output_tokens=512,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             text = response.text.strip()
@@ -164,7 +166,7 @@ ANALYSIS: [2-3 sentences explaining your reasoning]"""
         if not self.client:
             return {"recommendation": "hold", "confidence": 0, "reasoning": "LLM unavailable"}
 
-        prompt = f"""You are MemeGuard's position monitoring AI for Four.meme tokens on BNB Chain.
+        prompt = f"""You are FourScout's position monitoring AI for Four.meme tokens on BNB Chain.
 Analyze whether this active position should be exited.
 
 Position data:
@@ -197,7 +199,8 @@ REASONING: [1-2 sentences explaining why, referencing specific signals]"""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=200,
+                    max_output_tokens=512,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             text = response.text.strip()
@@ -240,7 +243,11 @@ Description: {description[:500]}"""
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=10),
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=10,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
             )
             result = response.text.strip().lower()
             if result in ("legit", "scam", "hype"):

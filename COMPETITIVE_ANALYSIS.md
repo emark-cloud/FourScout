@@ -1,10 +1,10 @@
-# Competitive Analysis: BuildersClaw Patterns Applied to MemeGuard
+# Competitive Analysis: BuildersClaw Patterns Applied to FourScout
 
 ## Context
 
 **Source:** [buildersclaw/buildersclaw](https://github.com/buildersclaw/buildersclaw) — a hackathon-winning AI agent competition platform built for GenLayer's Incentivized Builder Program. It coordinates autonomous AI agents in real hackathons with on-chain settlement, decentralized AI judging, and team coordination.
 
-**Target:** MemeGuard — our AI trading agent console for Four.meme on BSC.
+**Target:** FourScout — our AI trading agent console for Four.meme on BSC.
 
 **Hackathon:** [Four.Meme AI Sprint](https://dorahacks.io/hackathon/fourmemeaisprint/detail) — $50K prize pool, deadline **April 22, 2026**.
 
@@ -30,7 +30,7 @@
 
 **BuildersClaw pattern:** Every flow is complete — company posts challenge → agents join → agents build → submissions judged → winners paid. No dead ends.
 
-**MemeGuard gap:** The core pipeline breaks at the action proposal stage. Tokens are discovered and scored, but the system doesn't automatically propose trades, enforce approval modes, or manage position lifecycles.
+**FourScout gap:** The core pipeline breaks at the action proposal stage. Tokens are discovered and scored, but the system doesn't automatically propose trades, enforce approval modes, or manage position lifecycles.
 
 **Recommendation:** Complete the happy path: `token discovered → scored → persona decides → action proposed → user approves → trade executes → position tracked → exit signal → close`. This is the single most important thing to ship. A working end-to-end demo is worth more than 5 partial features.
 
@@ -43,7 +43,7 @@
 2. Top 3 escalated to GenLayer on-chain consensus (5 validators, multiple LLMs)
 3. Contextual prompt engineering — judge prompts include hackathon brief, company context, custom criteria
 
-**MemeGuard gap:** Single LLM call (Gemini) for rationale generation only. The AI doesn't participate in decision-making at all — it just explains what the deterministic engine already decided.
+**FourScout gap:** Single LLM call (Gemini) for rationale generation only. The AI doesn't participate in decision-making at all — it just explains what the deterministic engine already decided.
 
 **Recommendation — "AI Depth" (targets Innovation criterion):**
 
@@ -59,9 +59,9 @@ This scores heavily on "originality and depth of AI application" — judges want
 
 **BuildersClaw pattern:** Smart contracts for escrow, on-chain join verification, GenLayer for decentralized judging. Trust is in the protocol, not the platform.
 
-**MemeGuard opportunity — ERC-8004 Agent Identity:**
+**FourScout opportunity — ERC-8004 Agent Identity:**
 
-MemeGuard already has the CLI methods for ERC-8004 (`register_8004`, `balance_8004`) and the `AgentIdentifier` ABI. Registering the agent on-chain via ERC-8004 would:
+FourScout already has the CLI methods for ERC-8004 (`register_8004`, `balance_8004`) and the `AgentIdentifier` ABI. Registering the agent on-chain via ERC-8004 would:
 - Differentiate from other submissions (few will use this Four.meme-native feature)
 - Enable AI Agent Mode exclusive trading phases
 - Show deep Four.meme platform integration (judges are Four.meme team)
@@ -75,7 +75,7 @@ MemeGuard already has the CLI methods for ERC-8004 (`register_8004`, `balance_80
 
 **BuildersClaw pattern:** Webhook system with HMAC-signed payloads, Telegram bridge, real-time activity feeds with typed events (push, feedback, approval, system).
 
-**MemeGuard gap:** WebSocket framework exists but only broadcasts `new_token` and `risk_scored`. No trade execution updates, no position PnL streaming, no approval notifications.
+**FourScout gap:** WebSocket framework exists but only broadcasts `new_token` and `risk_scored`. No trade execution updates, no position PnL streaming, no approval notifications.
 
 **Recommendation:** Expand WebSocket event types to make the dashboard feel alive:
 - `action_proposed` — new trade opportunity pending approval
@@ -92,7 +92,7 @@ This targets both **demo stability** (the demo feels responsive and real-time) a
 
 **BuildersClaw pattern:** Every API endpoint documented in `/skill.md` (agent-facing) and README. Consistent response format (`{ success, data }` or `{ success, error: { message, hint } }`). Clear auth model.
 
-**MemeGuard gap:** API works but isn't documented for external consumption. No standardized error format.
+**FourScout gap:** API works but isn't documented for external consumption. No standardized error format.
 
 **Recommendation (low priority for hackathon):** Not critical for judging unless you plan to demonstrate extensibility. Skip for now.
 
@@ -102,7 +102,7 @@ This targets both **demo stability** (the demo feels responsive and real-time) a
 
 **BuildersClaw pattern:** 10 judging criteria with explicit weights (brief_compliance at 2x, functionality at 1.5x, etc.). Transparent, reproducible.
 
-**MemeGuard already does this well:** 8 risk signals with HIGH/MEDIUM/LOW weights. This is a strong differentiator — make sure the UI clearly shows the weights, individual signal scores, and how they combine. Transparency builds trust.
+**FourScout already does this well:** 8 risk signals with HIGH/MEDIUM/LOW weights. This is a strong differentiator — make sure the UI clearly shows the weights, individual signal scores, and how they combine. Transparency builds trust.
 
 **Enhancement:** Add a "Risk Breakdown" visualization (radar chart or stacked bar) that makes the 8 signals visually obvious. This is a high-impact demo element.
 
@@ -144,34 +144,34 @@ This targets both **demo stability** (the demo feels responsive and real-time) a
 
 ### Pattern: "Deterministic Core + AI Explanation Layer"
 
-BuildersClaw and MemeGuard both share this: deterministic scoring with AI explanation. MemeGuard already does this for risk. **Extend it to the persona engine** — have the LLM explain why the persona chose to buy/skip/monitor, not just why the risk score is what it is.
+BuildersClaw and FourScout both share this: deterministic scoring with AI explanation. FourScout already does this for risk. **Extend it to the persona engine** — have the LLM explain why the persona chose to buy/skip/monitor, not just why the risk score is what it is.
 
 ### Pattern: "Escalation Pipeline"
 
 BuildersClaw: Gemini (fast/cheap) → GenLayer (slow/consensus) for important decisions.
 
-MemeGuard equivalent: Quick risk scan (deterministic) → Deep AI analysis (only for AMBER tokens where the decision is uncertain). Don't waste LLM calls on obvious GREEN or RED tokens. Focus AI attention where human judgment is genuinely needed.
+FourScout equivalent: Quick risk scan (deterministic) → Deep AI analysis (only for AMBER tokens where the decision is uncertain). Don't waste LLM calls on obvious GREEN or RED tokens. Focus AI attention where human judgment is genuinely needed.
 
 ### Pattern: "Verifiable Outcomes"
 
 BuildersClaw: Every result is on-chain, every submission is a public repo, every score is reproducible.
 
-MemeGuard equivalent: Log every risk score, every LLM rationale, every decision with timestamps and inputs. The `scans` table already does this partially. Extend to create an **audit trail** — "here's exactly why the agent made this decision at this moment." This is powerful for the demo: you can replay decisions.
+FourScout equivalent: Log every risk score, every LLM rationale, every decision with timestamps and inputs. The `scans` table already does this partially. Extend to create an **audit trail** — "here's exactly why the agent made this decision at this moment." This is powerful for the demo: you can replay decisions.
 
 ### Pattern: "Role-Based Agent Capabilities"
 
 BuildersClaw: Feedback Reviewer, Builder, Architect, QA — each with specific responsibilities.
 
-MemeGuard equivalent: The three personas (Conservative, Momentum, Sniper) already fill this role. Make sure the persona selection UI clearly communicates the tradeoffs and shows historical performance per persona.
+FourScout equivalent: The three personas (Conservative, Momentum, Sniper) already fill this role. Make sure the persona selection UI clearly communicates the tradeoffs and shows historical performance per persona.
 
 ---
 
 ## What NOT to Copy
 
-1. **Supabase/Postgres** — MemeGuard's SQLite is fine for a hackathon demo. Don't add infrastructure complexity.
-2. **Complex smart contracts** — MemeGuard doesn't need escrow or factory patterns. The CLI handles trading.
-3. **Team coordination features** — MemeGuard is a single-user tool. Don't add unnecessary multi-user complexity.
-4. **Webhook system** — No external agents are consuming MemeGuard's API. WebSockets are sufficient.
+1. **Supabase/Postgres** — FourScout's SQLite is fine for a hackathon demo. Don't add infrastructure complexity.
+2. **Complex smart contracts** — FourScout doesn't need escrow or factory patterns. The CLI handles trading.
+3. **Team coordination features** — FourScout is a single-user tool. Don't add unnecessary multi-user complexity.
+4. **Webhook system** — No external agents are consuming FourScout's API. WebSockets are sufficient.
 
 ---
 
@@ -183,7 +183,7 @@ Community voting is 30% of the total score. BuildersClaw invested in:
 - Clear README with architecture diagrams
 - Demo video
 
-**For MemeGuard:**
+**For FourScout:**
 - **Deploy frontend to Vercel** — voters need to see a live demo
 - **Dark theme is already right** for a trading/crypto tool — lean into the aesthetic
 - **Record a 2-minute demo video** showing the end-to-end flow
@@ -222,4 +222,4 @@ Community Voting (30% of total):
   → Compelling screenshots and README
 ```
 
-**Bottom line:** BuildersClaw won by shipping a complete, working system with genuine AI depth and on-chain verification. MemeGuard's risk engine and persona system are strong foundations, but the demo needs to show the full trading loop end-to-end. Focus the remaining 8 days on completing the pipeline, adding AI depth, and polishing the demo.
+**Bottom line:** BuildersClaw won by shipping a complete, working system with genuine AI depth and on-chain verification. FourScout's risk engine and persona system are strong foundations, but the demo needs to show the full trading loop end-to-end. Focus the remaining 8 days on completing the pipeline, adding AI depth, and polishing the demo.

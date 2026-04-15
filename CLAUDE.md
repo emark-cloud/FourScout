@@ -1,8 +1,8 @@
-# MemeGuard — Four.meme AI Agent Console
+# FourScout — Four.meme AI Agent Console
 
 ## Project Overview
 
-MemeGuard is a persona-based AI trading agent for the **Four.meme** memecoin launchpad on **BNB Chain (BSC)**. It scans new token launches, scores risk, explains findings in plain language, provides an interactive AI advisor for trading decisions, and executes trades within user-approved limits.
+FourScout is a persona-based AI trading agent for the **Four.meme** memecoin launchpad on **BNB Chain (BSC)**. It scans new token launches, scores risk, explains findings in plain language, provides an interactive AI advisor for trading decisions, and executes trades within user-approved limits.
 
 Built for the **Four.Meme AI Sprint** hackathon on DoraHacks ($50K prize pool).
 
@@ -20,7 +20,7 @@ Expert review (70%) + Community voting (30%):
 |-------|-----------|
 | Backend | Python FastAPI + SQLite + Web3.py |
 | Frontend | React + Vite + Tailwind CSS (dark theme) |
-| LLM | Google Gemini 2.0 Flash (free tier, `google-genai` SDK) |
+| LLM | Google Gemini 2.5 Flash (`google-genai` SDK) |
 | On-chain reads | Web3.py (direct contract calls for risk scoring) |
 | Trading | Four.meme CLI (`@four-meme/four-meme-ai`) via subprocess |
 | Wallet | wagmi + viem (frontend BSC wallet connection) |
@@ -184,7 +184,7 @@ PRIVATE_KEY=                  # Hex private key for agent wallet (never main wal
 GEMINI_API_KEY=               # Google Gemini API key (free tier)
 
 # Database
-DATABASE_PATH=./data/memeguard.db
+DATABASE_PATH=./data/fourscout.db
 
 # Scanner
 SCAN_INTERVAL_SECONDS=30

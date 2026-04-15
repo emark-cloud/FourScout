@@ -124,65 +124,43 @@ meme-guard/
 
 ## 6. Current Status — Phase 2 (The Brain)
 
-### COMPLETE (committed)
+### COMPLETE (committed at `c23acbf`)
 
-Everything below is committed at `d5c782b`:
+**Buy loop (verified end-to-end with real BNB):**
+- Scanner discovers tokens → risk engine scores with 8 signals → persona engine proposes buy → approval gate creates pending_action with CLI quote preview → user approves → executor gets fresh quote with slippage protection → CLI buys on-chain → position recorded with correct token quantity → position tracker monitors PnL every 60s
+- Tested: 0.0001 BNB trade executed, tx hash on BSC, position recorded with 17,249 tokens
 
-- **Full buy loop verified end-to-end:** scanner discovers tokens → risk engine scores with 8 signals → persona engine proposes buy → approval gate creates pending_action with CLI quote preview → user approves → executor gets fresh quote with slippage protection → CLI buys on-chain → position recorded with correct token quantity → position tracker monitors PnL every 60s
-- **Tested with real BNB:** 0.0001 BNB trade executed, tx hash on BSC, position recorded with 17,249 tokens
-- **Auto-propose pipeline:** scanner automatically creates pending buy actions for AMBER/GREEN tokens
-- **AI chat advisor:** context-aware Gemini chat on every page + token-scoped on OpportunityDetail
-- **Multi-signal narrative synthesis:** LLM correlates 8 signals into pattern-detecting narratives
-- **AMBER escalation:** `deep_analyze_amber()` returns lean_buy/lean_skip/watch with confidence
-- **4 WebSocket events:** action_proposed, trade_executed, position_update, risk_alert
+**Sell flow (implemented, not yet tested):**
+- Sell executor with slippage protection (`cli.quote_sell` → `min_funds_wei`)
+- Position closure (sets status='closed', exit_price, exit_amount_bnb, pnl_bnb, closed_at)
+- Sell trade recorded in trades table
+- Broadcasts trade_executed with PnL data
 
-### IMPLEMENTED BUT NOT YET TESTED (uncommitted changes)
+**AI pipeline:**
+- Auto-propose pipeline: scanner automatically creates pending buy actions for AMBER/GREEN tokens
+- AI chat advisor: context-aware Gemini chat on every page + token-scoped on OpportunityDetail
+- Multi-signal narrative synthesis: LLM correlates 8 signals into pattern-detecting narratives
+- AMBER escalation: `deep_analyze_amber()` returns lean_buy/lean_skip/watch with confidence
+- AI-driven position monitoring: `analyze_position_exit()` runs every 5 min with drift detection (capped at 3 LLM calls/cycle)
 
-The following changes are in the working tree but **not committed**:
+**Exit strategy:**
+- Configurable take-profit/stop-loss thresholds (config keys: `take_profit_pct`, `stop_loss_pct`, `auto_sell_enabled`)
+- Auto-sell mode: automatic sell execution at thresholds without approval (separate from buy approval_mode)
+- Exit Strategy settings UI section with take profit %, stop loss %, auto-sell toggle
 
-1. **Complete sell executor** (`backend/services/executor.py`)
-   - Gets sell quote for slippage protection (`cli.quote_sell` → `min_funds_wei`)
-   - Closes position (sets status='closed', exit_price, exit_amount_bnb, pnl_bnb, closed_at)
-   - Records sell trade in trades table
-   - Broadcasts trade_executed with PnL data
+**Real-time alerting:**
+- 6 WebSocket events: new_token, risk_scored, risk_alert, action_proposed, position_update, trade_executed
+- Toast notification system: real-time visual alerts for all important WS events
+- Position update toasts filtered to milestones only (50%+, 100%+, -40%+)
+- App.jsx restructured: split into App (providers) and AppContent (hooks + NotificationProvider)
 
-2. **Configurable exit thresholds** (`backend/database.py`, `backend/routes/config_routes.py`)
-   - New config keys: `take_profit_pct` (default "100"), `stop_loss_pct` (default "-50"), `auto_sell_enabled` (default "false")
-   - Position tracker reads these instead of hardcoded values
+### WHAT NEEDS TO BE TESTED
 
-3. **Auto-sell mode** (`backend/services/position_tracker.py`)
-   - When `auto_sell_enabled` is "true", sells execute immediately at thresholds without approval
-   - Separate from buy approval_mode — users can have approve_each for buys + auto-sell for exits
-
-4. **AI-driven position monitoring** (`backend/services/position_tracker.py`, `backend/services/llm_service.py`)
-   - New `analyze_position_exit()` method in LLMService
-   - Runs every 5th cycle (every 5 minutes), max 3 LLM calls per cycle
-   - Drift triggers: PnL approaching thresholds, stale positions (30+ min no movement)
-   - If AI recommends "exit" with confidence >= 70, proposes exit with AI reasoning
-
-5. **Toast notification system** (`frontend/src/components/ToastNotifications.jsx`, `frontend/src/App.jsx`, `frontend/src/index.css`)
-   - Real-time toast alerts for trade_executed, action_proposed, risk_alert, position milestones
-   - Position updates filtered to milestones (50%+, 100%+, -40%+) to prevent spam
-   - Max 5 visible, auto-dismiss 5s, slide-in animation, Binance-themed colors
-   - App.jsx restructured: split into App (providers) and AppContent (hooks + NotificationProvider)
-
-6. **Exit Strategy settings UI** (`frontend/src/pages/Settings.jsx`)
-   - New section between "Approval Mode" and "Budget Caps"
-   - Take profit % input, stop loss % input, auto-sell toggle switch
-
-7. **Documentation updates** (TODO.md, CLAUDE.md, Memeguard.md)
-   - New features M, N, O added to Memeguard.md
-   - Phase 2 updated with sell flow and alerting items
-   - CLAUDE.md updated with auto-sell config, AI monitoring design principle
-
-### WHAT NEEDS TO BE DONE NEXT
-
-**Immediate (finish Phase 2):**
+**To finish Phase 2:**
 1. Test the sell flow: buy a token → wait for position tracker to propose exit (or manually trigger) → approve → verify position closes, trade recorded, PnL correct
 2. Test toast notifications: start frontend, approve a trade, verify toasts appear
 3. Test exit strategy settings: change thresholds in Settings, verify position_tracker uses them
 4. Test AI monitoring: with Gemini key, hold a position for 5+ minutes, check backend logs for AI analysis
-5. Commit and push all uncommitted changes
 
 **Phase 3 — Polish & Demo Features (see TODO.md):**
 - ERC-8004 agent identity registration (Settings UI button + on-chain tx)
@@ -346,6 +324,7 @@ Full analysis at `COMPETITIVE_ANALYSIS.md`. Key patterns adopted from BuildersCl
 ## 16. Git History
 
 ```
+c23acbf Complete sell flow, AI position monitoring, auto-sell, toast notifications, and handoff doc
 d5c782b Phase 2: Brain — auto-propose pipeline, trade execution, AI advisor, and position tracking
 4a98030 Fix Phase 1 bugs: HTTP status codes, LLM integration, slippage protection, CORS, and daily budget tracking
 0df96f3 Integrate competitive analysis: add AI advisor, narrative synthesis, and reprioritized build phases
@@ -354,7 +333,7 @@ d5c782b Phase 2: Brain — auto-propose pipeline, trade execution, AI advisor, a
 1e4f776 Phase 1: Foundation — full project scaffold with live token feed and risk scoring
 ```
 
-**Uncommitted changes:** sell flow fix, configurable thresholds, auto-sell, AI position monitoring, toast notifications, exit strategy settings UI, doc updates (12 modified files + 1 new file).
+**All changes are committed and pushed.** No uncommitted work.
 
 ---
 

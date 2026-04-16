@@ -132,7 +132,7 @@ class FourMemeCLI:
 
     # --- ERC-8004 Agent Identity ---
 
-    async def register_8004(self, name: str, image_url: str = None, description: str = None) -> dict:
+    async def register_8004(self, name: str, image_url: str | None = None, description: str | None = None) -> dict:
         args = ["8004-register", name]
         if image_url:
             args.append(image_url)

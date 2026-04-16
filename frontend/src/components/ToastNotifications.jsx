@@ -32,6 +32,11 @@ const EVENT_CONFIG = {
     if (pnlPct <= -40) return { type: 'error', title: 'Position Down', message: `${data.token_address?.slice(0, 10)}... PnL: ${pnlPct.toFixed(0)}%` }
     return null
   },
+  avoided_update: (data) => ({
+    type: 'success',
+    title: 'Dodged a Bullet!',
+    message: `${data.token_name || data.token_address?.slice(0, 10)} rugged — saved ~${data.estimated_savings_bnb?.toFixed(4) || '?'} BNB`,
+  }),
 }
 
 export function NotificationProvider({ children, wsMessages }) {

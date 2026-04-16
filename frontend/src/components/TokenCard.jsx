@@ -18,7 +18,7 @@ export default function TokenCard({ token }) {
   return (
     <Link
       to={`/token/${token.address}`}
-      className="block bg-[var(--bg-card)] rounded-xl p-4 hover:bg-[var(--bg-hover)] transition-colors no-underline border border-transparent hover:border-[var(--border)]"
+      className="block bg-[var(--bg-card)] rounded-xl p-4 hover:bg-[var(--bg-hover)] no-underline border border-transparent hover:border-[var(--border)] card-hover animate-fade-in-up"
     >
       <div className="flex items-start justify-between mb-3">
         <div>

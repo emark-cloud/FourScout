@@ -90,5 +90,17 @@ export const sendChatMessage = (message, tokenAddress = null) =>
 export const clearChatHistory = () =>
   request('/chat/history', { method: 'DELETE' })
 
+// Override stats (behavioral nudge)
+export const getOverrideStats = () => request('/overrides/stats')
+
+// Agent Identity (ERC-8004)
+export const getAgentStatus = () => request('/agent/status')
+
+export const registerAgent = (name, imageUrl = null, description = null) =>
+  request('/agent/register', {
+    method: 'POST',
+    body: JSON.stringify({ name, image_url: imageUrl, description }),
+  })
+
 // Health
 export const getHealth = () => request('/health')

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import RiskBadge from '../components/RiskBadge'
+import RiskRadar from '../components/RiskRadar'
 import ChatPanel from '../components/ChatPanel'
 import { getToken, approveAction, rejectAction } from '../services/api'
 
@@ -124,9 +125,15 @@ export default function OpportunityDetail() {
         )}
       </div>
 
+      {/* Risk radar chart */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-6 mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Risk Profile</h2>
+        <RiskRadar riskDetail={riskDetail} />
+      </div>
+
       {/* Risk breakdown */}
       <div className="bg-[var(--bg-card)] rounded-xl p-6 mb-4">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Risk Breakdown</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Signal Details</h2>
         {Object.keys(riskDetail).length > 0 ? (
           <div className="space-y-3">
             {Object.entries(riskDetail).map(([signal, data]) => (

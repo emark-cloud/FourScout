@@ -56,6 +56,13 @@ async def approve_action(req: ActionResponse):
         )
         await db.commit()
 
+        # Track override: user approved a RED or AMBER signal (overriding agent caution)
+        if action["risk_score"] in ("red", "amber"):
+            await db.execute(
+                "INSERT INTO overrides (token_address, agent_recommendation, user_action, created_at) VALUES (?, ?, ?, ?)",
+                (action["token_address"], "skip", "approved", now),
+            )
+
         # Mark session as approved for per-session mode
         from services.approval_gate import mark_session_approved
         mark_session_approved()

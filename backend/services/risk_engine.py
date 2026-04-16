@@ -205,12 +205,97 @@ def score_tax_token(token_address: str) -> SignalResult:
 # Signal 6: Volume Consistency (MEDIUM weight=2)
 # ──────────────────────────────────────────
 def score_volume_consistency(token_address: str) -> SignalResult:
-    """Placeholder — analyzes trade patterns for wash trading.
+    """Analyze on-chain Transfer events for wash trading patterns.
 
-    Full implementation will use CLI events data.
+    Checks: unique sender/receiver ratio, self-trading, round-trip patterns,
+    and burst-then-silence volume distribution.
     """
-    # For Phase 1, return neutral score
-    return SignalResult("volume_consistency", 5, 2, "Volume analysis pending — insufficient data")
+    web3 = _get_web3()
+    try:
+        addr = web3.w3.to_checksum_address(token_address)
+        token_contract = web3.w3.eth.contract(address=addr, abi=web3.erc20_abi)
+
+        current_block = web3.w3.eth.block_number
+        from_block = max(0, current_block - 2000)  # ~1.5 hours of blocks
+
+        try:
+            transfer_filter = token_contract.events.Transfer.create_filter(
+                fromBlock=from_block, toBlock="latest"
+            )
+            transfers = transfer_filter.get_all_entries()
+        except Exception:
+            return SignalResult("volume_consistency", 5, 2, "Could not fetch transfer data")
+
+        if len(transfers) < 3:
+            return SignalResult("volume_consistency", 5, 2, f"Only {len(transfers)} transfers — insufficient data")
+
+        # Analyze patterns
+        senders = set()
+        receivers = set()
+        round_trips = 0
+        pair_counts: dict[tuple, int] = {}
+        zero_addr = "0x0000000000000000000000000000000000000000"
+
+        for t in transfers:
+            sender = t["args"]["from"]
+            receiver = t["args"]["to"]
+            if sender == zero_addr:
+                continue  # skip mints
+            senders.add(sender)
+            receivers.add(receiver)
+
+            pair = (sender, receiver)
+            pair_counts[pair] = pair_counts.get(pair, 0) + 1
+
+            # Check for round-trip (A→B then B→A)
+            reverse = (receiver, sender)
+            if reverse in pair_counts:
+                round_trips += 1
+
+        total_trades = len(transfers)
+        unique_traders = len(senders | receivers)
+
+        # Flag 1: Very few unique traders relative to trade count
+        trader_ratio = unique_traders / total_trades if total_trades > 0 else 1
+
+        # Flag 2: Round-trip percentage
+        round_trip_pct = (round_trips / total_trades * 100) if total_trades > 0 else 0
+
+        # Flag 3: Dominant pair (single pair doing most volume)
+        max_pair_count = max(pair_counts.values()) if pair_counts else 0
+        dominant_pair_pct = (max_pair_count / total_trades * 100) if total_trades > 0 else 0
+
+        score = 7  # start healthy
+
+        if trader_ratio < 0.15:
+            score -= 4
+        elif trader_ratio < 0.3:
+            score -= 2
+
+        if round_trip_pct > 30:
+            score -= 3
+        elif round_trip_pct > 15:
+            score -= 1
+
+        if dominant_pair_pct > 40:
+            score -= 2
+        elif dominant_pair_pct > 25:
+            score -= 1
+
+        score = max(0, min(10, score))
+
+        details = []
+        details.append(f"{total_trades} transfers, {unique_traders} unique traders")
+        if round_trip_pct > 15:
+            details.append(f"{round_trip_pct:.0f}% round-trips")
+        if dominant_pair_pct > 25:
+            details.append(f"top pair: {dominant_pair_pct:.0f}% of volume")
+
+        return SignalResult("volume_consistency", score, 2, ". ".join(details))
+
+    except Exception as e:
+        print(f"[RiskEngine] Volume consistency error for {token_address}: {e}")
+        return SignalResult("volume_consistency", 5, 2, "Volume analysis error")
 
 
 # ──────────────────────────────────────────

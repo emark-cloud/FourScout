@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import PersonaSelector from '../components/PersonaSelector'
-import { getConfig, updateConfig, updateConfigBulk } from '../services/api'
+import { getConfig, updateConfig, updateConfigBulk, getAgentStatus, registerAgent, getWatchlist, addWatchlistItem, removeWatchlistItem } from '../services/api'
 
 const APPROVAL_MODES = [
   { id: 'approve_each', label: 'Approve Each', desc: 'Every trade requires explicit approval' },
@@ -15,8 +15,22 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
+  // Agent identity state
+  const [agentStatus, setAgentStatus] = useState(null)
+  const [registering, setRegistering] = useState(false)
+  const [registerError, setRegisterError] = useState(null)
+  const [agentName, setAgentName] = useState('FourScout Agent')
+
+  // Watchlist state
+  const [watchlist, setWatchlist] = useState([])
+  const [watchInput, setWatchInput] = useState('')
+  const [watchType, setWatchType] = useState('creator')
+  const [watchLabel, setWatchLabel] = useState('')
+
   useEffect(() => {
     getConfig().then(setConfig).catch(console.error)
+    getAgentStatus().then(setAgentStatus).catch(console.error)
+    getWatchlist().then(setWatchlist).catch(console.error)
   }, [])
 
   const handleSave = async () => {
@@ -34,6 +48,43 @@ export default function Settings() {
     }
   }
 
+  const handleRegister = async () => {
+    setRegistering(true)
+    setRegisterError(null)
+    try {
+      await registerAgent(agentName, null, 'FourScout AI trading agent on Four.meme')
+      const status = await getAgentStatus()
+      setAgentStatus(status)
+    } catch (e) {
+      console.error('Register error:', e)
+      setRegisterError('Registration failed. Check wallet balance and try again.')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  const handleAddWatch = async () => {
+    if (!watchInput.trim()) return
+    try {
+      await addWatchlistItem({ item_type: watchType, value: watchInput.trim(), label: watchLabel.trim() })
+      setWatchInput('')
+      setWatchLabel('')
+      const items = await getWatchlist()
+      setWatchlist(items)
+    } catch (e) {
+      console.error('Add watchlist error:', e)
+    }
+  }
+
+  const handleRemoveWatch = async (id) => {
+    try {
+      await removeWatchlistItem(id)
+      setWatchlist((prev) => prev.filter((item) => item.id !== id))
+    } catch (e) {
+      console.error('Remove watchlist error:', e)
+    }
+  }
+
   const update = (key, value) => {
     setConfig((prev) => ({ ...prev, [key]: value }))
   }
@@ -41,6 +92,67 @@ export default function Settings() {
   return (
     <div className="max-w-3xl mx-auto">
       <h1 className="text-xl font-bold text-[var(--text-primary)] mb-6">Settings</h1>
+
+      {/* Agent Identity (ERC-8004) */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Agent Identity (ERC-8004)</h2>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 space-y-3">
+          {agentStatus ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-secondary)]">Wallet</span>
+                <span className="text-sm font-mono text-[var(--text-primary)]">
+                  {agentStatus.wallet_address
+                    ? `${agentStatus.wallet_address.slice(0, 6)}...${agentStatus.wallet_address.slice(-4)}`
+                    : 'No key configured'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-secondary)]">BNB Balance</span>
+                <span className="text-sm text-[var(--text-primary)]">
+                  {agentStatus.bnb_balance ?? '—'} BNB
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-secondary)]">Status</span>
+                {agentStatus.is_registered ? (
+                  <span className="text-xs px-2 py-0.5 rounded bg-[rgba(14,203,129,0.15)] text-[#0ECB81] font-medium">
+                    REGISTERED
+                  </span>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 rounded bg-[rgba(246,70,93,0.15)] text-[#F6465D] font-medium">
+                    NOT REGISTERED
+                  </span>
+                )}
+              </div>
+              {!agentStatus.is_registered && agentStatus.has_private_key && (
+                <div className="pt-2 space-y-2">
+                  <input
+                    type="text"
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                    placeholder="Agent name"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)]"
+                  />
+                  {registerError && <p className="text-[#F6465D] text-xs">{registerError}</p>}
+                  <button
+                    onClick={handleRegister}
+                    disabled={registering || !agentName.trim()}
+                    className="w-full bg-[var(--accent-gold)] text-black font-semibold py-2 rounded-lg cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity text-sm"
+                  >
+                    {registering ? 'Registering on-chain...' : 'Register as AI Agent (ERC-8004)'}
+                  </button>
+                  <p className="text-xs text-[var(--text-secondary)] opacity-60">
+                    Registers your wallet on the BRC-8004 Identity Registry, enabling access to AI Agent Mode token launches.
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-sm text-[var(--text-secondary)]">Loading agent status...</div>
+          )}
+        </div>
+      </section>
 
       {/* Persona */}
       <section className="mb-8">
@@ -146,6 +258,73 @@ export default function Settings() {
               />
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Watchlist */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Watchlist</h2>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 space-y-3">
+          <div className="flex gap-2">
+            <select
+              value={watchType}
+              onChange={(e) => setWatchType(e.target.value)}
+              className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded px-2 py-1.5 text-sm text-[var(--text-primary)] outline-none"
+            >
+              <option value="creator">Creator</option>
+              <option value="token">Token</option>
+            </select>
+            <input
+              type="text"
+              value={watchInput}
+              onChange={(e) => setWatchInput(e.target.value)}
+              placeholder={watchType === 'creator' ? '0x... creator address' : '0x... token address'}
+              className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)] font-mono"
+            />
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={watchLabel}
+              onChange={(e) => setWatchLabel(e.target.value)}
+              placeholder="Label (optional)"
+              className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)]"
+            />
+            <button
+              onClick={handleAddWatch}
+              disabled={!watchInput.trim()}
+              className="bg-[var(--accent-gold)] text-black font-semibold px-4 py-1.5 rounded text-sm cursor-pointer hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              Add
+            </button>
+          </div>
+          {watchlist.length > 0 ? (
+            <div className="space-y-2 pt-1">
+              {watchlist.map((item) => (
+                <div key={item.id} className="flex items-center justify-between bg-[var(--bg-secondary)] rounded-lg px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[rgba(240,185,11,0.15)] text-[var(--accent-gold)] font-medium uppercase">
+                        {item.item_type}
+                      </span>
+                      {item.label && <span className="text-sm text-[var(--text-primary)]">{item.label}</span>}
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] font-mono truncate mt-0.5">{item.value}</p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveWatch(item.id)}
+                    className="text-[var(--text-secondary)] hover:text-[#F6465D] text-lg ml-2 cursor-pointer transition-colors flex-shrink-0"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)] opacity-60">
+              No items on watchlist. Add creator or token addresses to prioritize scanning.
+            </p>
+          )}
         </div>
       </section>
 

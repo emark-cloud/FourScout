@@ -1,4 +1,4 @@
-"""Activity feed endpoints."""
+"""Activity feed and override stats endpoints."""
 
 from fastapi import APIRouter, Query
 from database import get_db
@@ -28,5 +28,43 @@ async def list_activity(
         cursor = await db.execute(query, params)
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+    finally:
+        await db.close()
+
+
+@router.get("/overrides/stats")
+async def override_stats():
+    """Get behavioral nudge stats — how often the user overrode the agent."""
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT COUNT(*) as total FROM overrides")
+        total = (await cursor.fetchone())["total"]
+
+        # User approved despite agent saying skip (red/amber)
+        cursor = await db.execute(
+            "SELECT COUNT(*) as cnt FROM overrides WHERE user_action = 'approved'"
+        )
+        approved_risky = (await cursor.fetchone())["cnt"]
+
+        # User rejected agent's green buy recommendation
+        cursor = await db.execute(
+            "SELECT COUNT(*) as cnt FROM overrides WHERE user_action = 'rejected'"
+        )
+        rejected_safe = (await cursor.fetchone())["cnt"]
+
+        # How many overridden approvals turned out bad (token rugged or large loss)
+        cursor = await db.execute(
+            """SELECT COUNT(*) as cnt FROM overrides o
+               JOIN avoided a ON o.token_address = a.token_address
+               WHERE o.user_action = 'approved' AND a.confirmed_rug = 1"""
+        )
+        overrides_rugged = (await cursor.fetchone())["cnt"]
+
+        return {
+            "total_overrides": total,
+            "approved_risky": approved_risky,
+            "rejected_safe": rejected_safe,
+            "overrides_rugged": overrides_rugged,
+        }
     finally:
         await db.close()

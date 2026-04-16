@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import TokenCard from '../components/TokenCard'
 import BudgetBar from '../components/BudgetBar'
-import { getTokens, getConfig, getPositions, getAvoidedStats, getDailyTradeStats } from '../services/api'
+import { getTokens, getConfig, getPositions, getAvoidedStats, getDailyTradeStats, getOverrideStats } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 
 const PERSONA_LABELS = {
@@ -14,18 +14,20 @@ export default function Dashboard() {
   const [tokens, setTokens] = useState([])
   const [config, setConfig] = useState({})
   const [stats, setStats] = useState({ trades: 0, positions: 0, avoided: 0, savings: 0, spent: 0 })
+  const [overrides, setOverrides] = useState(null)
   const [loading, setLoading] = useState(true)
   const { isConnected: wsConnected } = useWebSocket()
 
   useEffect(() => {
     async function load() {
       try {
-        const [tokenData, configData, posData, avoidedData, dailyData] = await Promise.all([
+        const [tokenData, configData, posData, avoidedData, dailyData, overrideData] = await Promise.all([
           getTokens({ limit: 30 }).catch(() => []),
           getConfig().catch(() => ({})),
           getPositions('active').catch(() => []),
           getAvoidedStats().catch(() => ({ confirmed_rugs: 0, estimated_savings_bnb: 0 })),
           getDailyTradeStats().catch(() => ({ spent_today_bnb: 0, trades_today: 0 })),
+          getOverrideStats().catch(() => null),
         ])
         setTokens(tokenData)
         setConfig(configData)
@@ -36,6 +38,7 @@ export default function Dashboard() {
           savings: avoidedData.estimated_savings_bnb,
           spent: dailyData.spent_today_bnb,
         })
+        if (overrideData) setOverrides(overrideData)
       } catch (e) {
         console.error('Dashboard load error:', e)
       } finally {
@@ -63,7 +66,7 @@ export default function Dashboard() {
         {/* Agent status */}
         <div className="flex items-center gap-1.5">
           <span
-            className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-[#0ECB81] animate-pulse' : 'bg-[#F6465D]'}`}
+            className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-[#0ECB81] animate-pulse-glow' : 'bg-[#F6465D]'}`}
           />
           <span className="text-xs text-[var(--text-secondary)]">
             {wsConnected ? 'Scanning' : 'Disconnected'}
@@ -89,6 +92,30 @@ export default function Dashboard() {
           positions={stats.positions}
         />
       </div>
+
+      {/* Behavioral nudge */}
+      {overrides && overrides.total_overrides > 0 && (
+        <div className="mb-6 bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border)]">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">Override Summary</h3>
+          <div className="flex flex-wrap gap-4 text-sm">
+            {overrides.approved_risky > 0 && (
+              <span className="text-[#F0B90B]">
+                {overrides.approved_risky} risky trade{overrides.approved_risky !== 1 ? 's' : ''} approved
+              </span>
+            )}
+            {overrides.rejected_safe > 0 && (
+              <span className="text-[var(--text-secondary)]">
+                {overrides.rejected_safe} safe trade{overrides.rejected_safe !== 1 ? 's' : ''} rejected
+              </span>
+            )}
+            {overrides.overrides_rugged > 0 && (
+              <span className="text-[#F6465D]">
+                {overrides.overrides_rugged} overridden token{overrides.overrides_rugged !== 1 ? 's' : ''} rugged
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Token feed */}
       <div className="mb-4">

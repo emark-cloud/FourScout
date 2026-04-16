@@ -33,7 +33,7 @@ export default function Avoided() {
       </p>
 
       {/* Stats banner */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total_flagged}</div>
           <div className="text-xs text-[var(--text-secondary)]">Tokens Flagged</div>
@@ -63,7 +63,7 @@ export default function Avoided() {
               : null
 
             return (
-              <div key={item.id} className="bg-[var(--bg-card)] rounded-xl p-4 flex items-center gap-4">
+              <div key={item.id} className="bg-[var(--bg-card)] rounded-xl p-4 flex items-center gap-4 animate-fade-in-up">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-[var(--text-primary)]">{item.token_name || 'Unknown'}</span>

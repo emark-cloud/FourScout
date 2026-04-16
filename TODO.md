@@ -77,7 +77,7 @@
 - [x] `trade_executed` — buy/sell completed with tx details
 - [x] `position_update` — PnL change (periodic, from position tracker)
 - [x] `risk_alert` — token grade changed on rescore
-- [ ] `avoided_update` — "dodged a bullet" notification (deferred to Phase 3 avoided tracker)
+- [x] `avoided_update` — "dodged a bullet" notification (implemented in Phase 3 avoided tracker)
 
 ### Verify Phase 2
 - [x] **Auto-propose pipeline:** scanner → score → persona → approval gate → pending_action (verified: 10+ pending actions auto-created)
@@ -91,20 +91,20 @@
 **Goal:** Demo-ready with killer differentiators and visual polish. Ordered by judging impact.
 
 ### High Priority (Differentiators)
-- [ ] ERC-8004 agent identity registration (`agent_identity.py` + Settings UI button + on-chain verification)
-- [ ] "What I Avoided" background job: check red-flagged token prices at 1h/6h/24h, confirmed rug detection
-- [ ] Risk visualization: radar chart or stacked signal bars for 8-signal breakdown (recharts/chart.js)
+- [x] ERC-8004 agent identity registration (`agent_identity.py` + Settings UI section + on-chain verification)
+- [x] "What I Avoided" background job: check red-flagged token prices at 1h/6h/24h, confirmed rug detection, `avoided_update` toast
+- [x] Risk visualization: radar chart for 8-signal breakdown (recharts RadarChart on OpportunityDetail)
 - [ ] Deployment: Frontend → Vercel, Backend Dockerfile (Python + Node.js) → Railway
 
 ### Medium Priority (Completeness)
-- [ ] Behavioral nudge: track overrides, show outcome summary on Dashboard ("You overrode 3 red signals, 2 rugged")
-- [ ] Watchlist management UI on Settings page
-- [ ] Volume consistency signal: replace stub with real implementation (CLI events analysis)
+- [x] Behavioral nudge: track overrides (approve risky / reject safe), show outcome summary on Dashboard
+- [x] Watchlist management UI on Settings page (add/remove creator + token addresses)
+- [x] Volume consistency signal: real implementation using on-chain Transfer event analysis (wash trading detection)
 
 ### Demo & Submission
 - [ ] Demo seed script (pre-populate avoided rugs for compelling demo)
-- [ ] Visual polish: animations, hover effects, pulsing status indicator, responsive layout
-- [ ] README.md (architecture diagram, screenshots, setup instructions)
+- [x] Visual polish: card fade-in animations, hover glow, pulsing scanner dot, responsive grid
+- [x] README.md (architecture diagram, feature list, setup instructions)
 - [ ] Demo video recording (3-5 min, follow script in Memeguard.md Section 12)
 - [ ] DoraHacks BUIDL submission (GitHub repo + demo video link)
 

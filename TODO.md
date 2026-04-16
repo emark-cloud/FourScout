@@ -109,5 +109,7 @@
 - [ ] DoraHacks BUIDL submission (GitHub repo + demo video link)
 
 ### Verify Phase 3
-- [ ] **Full demo flow:** wallet → 8004 register → persona → live feed → AI advisor chat → approve trade → avoided rugs → behavioral summary
+- [x] **Playwright UI pass:** dashboard feed, token detail radar + 8 signals + AMBER deep-analysis narrative, avoided stats, settings (8004 card, persona, approval, exit strategy, budget, watchlist), AI chat panel (graceful Gemini-503 fallback) — all render correctly
+- [x] **Fixed during verification:** event-loop blocking on sync Web3 calls (commit `3476eb4`); SQLite `database is locked` under concurrent scoring + ghost-token AMBER mis-grading (commit `295bd0f`) — avoided tracker now auto-populates (39+ tokens flagged live)
+- [ ] **Wallet-gated demo flow:** 8004 register tx + trade approve-sign — requires MetaMask in browser, not automatable via Playwright
 - [ ] **Community voting appeal:** deployed, polished, screenshot-worthy

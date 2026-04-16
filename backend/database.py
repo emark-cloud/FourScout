@@ -181,6 +181,9 @@ def get_db_path() -> str:
 async def init_db():
     """Initialize the database with schema and default config."""
     async with aiosqlite.connect(get_db_path()) as db:
+        # WAL mode allows concurrent readers + one writer without "database is locked"
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA busy_timeout=5000")
         await db.executescript(SCHEMA)
         # Insert default config values if not present
         for key, value in DEFAULT_CONFIG.items():
@@ -192,9 +195,11 @@ async def init_db():
 
 
 async def get_db() -> aiosqlite.Connection:
-    """Get a database connection."""
+    """Get a database connection with WAL mode and busy timeout."""
     db = await aiosqlite.connect(get_db_path())
     db.row_factory = aiosqlite.Row
+    await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA busy_timeout=5000")
     return db
 
 
@@ -202,6 +207,8 @@ async def get_config_value(key: str) -> str | None:
     """Get a single config value."""
     async with aiosqlite.connect(get_db_path()) as db:
         db.row_factory = aiosqlite.Row
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA busy_timeout=5000")
         cursor = await db.execute("SELECT value FROM config WHERE key = ?", (key,))
         row = await cursor.fetchone()
         return row["value"] if row else None
@@ -211,6 +218,8 @@ async def get_all_config() -> dict:
     """Get all config as a dict."""
     async with aiosqlite.connect(get_db_path()) as db:
         db.row_factory = aiosqlite.Row
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA busy_timeout=5000")
         cursor = await db.execute("SELECT key, value FROM config")
         rows = await cursor.fetchall()
         return {row["key"]: row["value"] for row in rows}
@@ -219,6 +228,8 @@ async def get_all_config() -> dict:
 async def set_config_value(key: str, value: str):
     """Set a config value."""
     async with aiosqlite.connect(get_db_path()) as db:
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA busy_timeout=5000")
         await db.execute(
             "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
             (key, value),

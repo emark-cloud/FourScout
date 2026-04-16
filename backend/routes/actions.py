@@ -31,6 +31,7 @@ async def list_pending_actions():
 @router.post("/actions/approve")
 async def approve_action(req: ActionResponse):
     """Approve a pending trade action."""
+    # Phase 1: DB operations — fetch, mark approved, commit, close
     db = await get_db()
     try:
         cursor = await db.execute(
@@ -41,6 +42,7 @@ async def approve_action(req: ActionResponse):
         if not action:
             return JSONResponse(content={"error": "Action not found or already resolved"}, status_code=404)
 
+        action_dict = dict(action)
         now = datetime.now(timezone.utc).isoformat()
 
         # Mark as approved
@@ -54,7 +56,6 @@ async def approve_action(req: ActionResponse):
             "INSERT INTO activity (event_type, token_address, detail, created_at) VALUES (?, ?, ?, ?)",
             ("approve", action["token_address"], json.dumps({"action_id": req.action_id}), now),
         )
-        await db.commit()
 
         # Track override: user approved a RED or AMBER signal (overriding agent caution)
         if action["risk_score"] in ("red", "amber"):
@@ -63,18 +64,19 @@ async def approve_action(req: ActionResponse):
                 (action["token_address"], "skip", "approved", now),
             )
 
-        # Mark session as approved for per-session mode
-        from services.approval_gate import mark_session_approved
-        mark_session_approved()
-
-        # Trigger execution (imported here to avoid circular imports)
-        from main import ws_manager
-        from services.executor import execute_approved_action
-        result = await execute_approved_action(dict(action), ws_manager)
-
-        return {"status": "approved", "action_id": req.action_id, "result": result}
+        await db.commit()
     finally:
         await db.close()
+
+    # Phase 2: Execute trade (DB connection is released)
+    from services.approval_gate import mark_session_approved
+    mark_session_approved()
+
+    from main import ws_manager
+    from services.executor import execute_approved_action
+    result = await execute_approved_action(action_dict, ws_manager)
+
+    return {"status": "approved", "action_id": req.action_id, "result": result}
 
 
 @router.post("/actions/reject")

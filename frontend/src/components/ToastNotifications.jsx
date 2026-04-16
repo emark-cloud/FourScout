@@ -6,30 +6,35 @@ export function useNotifications() {
   return useContext(NotificationContext)
 }
 
+function tokenLabel(data) {
+  return data.token_name || data.token_address?.slice(0, 10) + '...'
+}
+
 const EVENT_CONFIG = {
   trade_executed: (data) => ({
     type: data.side === 'buy' ? 'success' : 'info',
     title: data.side === 'buy' ? 'Trade Executed' : 'Position Sold',
     message: data.side === 'buy'
-      ? `Bought ${data.token_address?.slice(0, 10)}... for ${data.amount_bnb} BNB`
-      : `Sold ${data.token_address?.slice(0, 10)}... PnL: ${data.pnl_bnb?.toFixed(6) || '?'} BNB`,
+      ? `Bought ${tokenLabel(data)} for ${data.amount_bnb} BNB`
+      : `Sold ${tokenLabel(data)} — PnL: ${data.pnl_bnb?.toFixed(6) || '?'} BNB`,
   }),
   action_proposed: (data) => ({
     type: 'warning',
     title: `${data.action_type === 'buy' ? 'Buy' : 'Sell'} Proposed`,
-    message: data.rationale?.slice(0, 80) || `${data.token_address?.slice(0, 10)}...`,
+    message: data.rationale?.slice(0, 80) || tokenLabel(data),
   }),
   risk_alert: (data) => ({
     type: data.new_grade === 'red' ? 'error' : 'warning',
     title: 'Risk Grade Changed',
-    message: `${data.address?.slice(0, 10)}... ${data.old_grade?.toUpperCase()} → ${data.new_grade?.toUpperCase()}`,
+    message: `${data.token_name || data.address?.slice(0, 10) + '...'} ${data.old_grade?.toUpperCase()} → ${data.new_grade?.toUpperCase()}`,
   }),
   position_update: (data) => {
     if (!data.pnl_bnb || !data.entry_amount_bnb) return null
+    const name = tokenLabel(data)
     const pnlPct = (data.pnl_bnb / data.entry_amount_bnb) * 100
-    if (pnlPct >= 100) return { type: 'success', title: '2x Profit!', message: `${data.token_address?.slice(0, 10)}... is up ${pnlPct.toFixed(0)}%` }
-    if (pnlPct >= 50) return { type: 'info', title: 'Position Up 50%+', message: `${data.token_address?.slice(0, 10)}... PnL: +${pnlPct.toFixed(0)}%` }
-    if (pnlPct <= -40) return { type: 'error', title: 'Position Down', message: `${data.token_address?.slice(0, 10)}... PnL: ${pnlPct.toFixed(0)}%` }
+    if (pnlPct >= 100) return { type: 'success', title: '2x Profit!', message: `${name} is up ${pnlPct.toFixed(0)}%` }
+    if (pnlPct >= 50) return { type: 'info', title: 'Position Up 50%+', message: `${name} PnL: +${pnlPct.toFixed(0)}%` }
+    if (pnlPct <= -40) return { type: 'error', title: 'Position Down', message: `${name} PnL: ${pnlPct.toFixed(0)}%` }
     return null
   },
   avoided_update: (data) => ({

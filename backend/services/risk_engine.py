@@ -507,9 +507,11 @@ async def score_token(token_address: str, ws_manager=None):
         await db.commit()
 
         # Broadcast to frontend
+        token_name = token_data.get("name") or token_address[:10] + "..."
         if ws_manager:
             await ws_manager.broadcast("risk_scored", {
                 "address": token_address,
+                "token_name": token_name,
                 "grade": result.grade,
                 "percentage": result.percentage,
                 "primary_risk": result.primary_risk,
@@ -520,6 +522,7 @@ async def score_token(token_address: str, ws_manager=None):
             if old_grade and old_grade != result.grade:
                 await ws_manager.broadcast("risk_alert", {
                     "address": token_address,
+                    "token_name": token_name,
                     "old_grade": old_grade,
                     "new_grade": result.grade,
                     "reason": result.primary_risk,
@@ -626,8 +629,10 @@ async def _auto_propose(db, token_address, token_data, result, rationale, ws_man
 
     # Broadcast action_proposed
     if ws_manager:
+        token_name = token_data.get("name") or token_address[:10] + "..."
         await ws_manager.broadcast("action_proposed", {
             "token_address": token_address,
+            "token_name": token_name,
             "action_type": "buy",
             "amount_bnb": action.amount_bnb,
             "risk_score": result.grade,

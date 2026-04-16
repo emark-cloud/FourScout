@@ -99,8 +99,8 @@ export default function Positions() {
                 <React.Fragment key={pos.id}>
                   <tr className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)]">
                     <td className="px-4 py-3">
-                      <Link to={`/token/${pos.token_address}`} className="text-[var(--accent-gold)] no-underline font-mono text-xs">
-                        {pos.token_address.slice(0, 10)}...
+                      <Link to={`/token/${pos.token_address}`} className="text-[var(--accent-gold)] no-underline text-sm">
+                        {pos.token_name || pos.token_symbol || pos.token_address.slice(0, 10) + '...'}
                       </Link>
                     </td>
                     <td className="text-right px-4 py-3 text-[var(--text-primary)]">

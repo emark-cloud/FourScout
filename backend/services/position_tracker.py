@@ -33,7 +33,11 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
     """Fetch current prices for all active positions and update PnL."""
     db = await get_db()
     try:
-        cursor = await db.execute("SELECT * FROM positions WHERE status = 'active'")
+        cursor = await db.execute(
+            """SELECT p.*, t.name as token_name FROM positions p
+               LEFT JOIN tokens t ON p.token_address = t.address
+               WHERE p.status = 'active'"""
+        )
         positions = [dict(row) for row in await cursor.fetchall()]
 
         if not positions:
@@ -74,6 +78,7 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
                     await ws_manager.broadcast("position_update", {
                         "position_id": pos["id"],
                         "token_address": pos["token_address"],
+                        "token_name": pos.get("token_name") or pos["token_address"][:10] + "...",
                         "current_price": current_price,
                         "pnl_bnb": round(pnl, 8),
                         "entry_amount_bnb": entry_amount,

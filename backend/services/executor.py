@@ -18,6 +18,11 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
         token_address = action["token_address"]
         amount_bnb = float(action["amount_bnb"])
 
+        # Look up token name for display
+        cursor = await db.execute("SELECT name FROM tokens WHERE address = ?", (token_address,))
+        token_row = await cursor.fetchone()
+        token_name = token_row["name"] if token_row else token_address[:10] + "..."
+
         if action_type == "buy":
             # Convert BNB to Wei
             funds_wei = str(int(amount_bnb * 10**18))
@@ -91,6 +96,7 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             if ws_manager:
                 await ws_manager.broadcast("trade_executed", {
                     "token_address": token_address,
+                    "token_name": token_name,
                     "side": "buy",
                     "amount_bnb": amount_bnb,
                     "tx_hash": tx_hash,
@@ -194,6 +200,7 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             if ws_manager:
                 await ws_manager.broadcast("trade_executed", {
                     "token_address": token_address,
+                    "token_name": token_name,
                     "side": "sell",
                     "tx_hash": tx_hash,
                     "position_id": position_id,
@@ -205,6 +212,7 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
 
         return {"status": "error", "message": f"Unknown action type: {action_type}"}
     except Exception as e:
+        print(f"[Executor] Error executing {action.get('action_type')} for {action.get('token_address')}: {e}")
         return {"status": "error", "message": str(e)}
     finally:
         await db.close()

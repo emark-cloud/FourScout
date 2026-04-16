@@ -18,11 +18,15 @@ async def list_positions(
     try:
         if status == "all":
             cursor = await db.execute(
-                "SELECT * FROM positions ORDER BY opened_at DESC LIMIT ?", (limit,)
+                """SELECT p.*, t.name as token_name, t.symbol as token_symbol
+                   FROM positions p LEFT JOIN tokens t ON p.token_address = t.address
+                   ORDER BY p.opened_at DESC LIMIT ?""", (limit,)
             )
         else:
             cursor = await db.execute(
-                "SELECT * FROM positions WHERE status = ? ORDER BY opened_at DESC LIMIT ?",
+                """SELECT p.*, t.name as token_name, t.symbol as token_symbol
+                   FROM positions p LEFT JOIN tokens t ON p.token_address = t.address
+                   WHERE p.status = ? ORDER BY p.opened_at DESC LIMIT ?""",
                 (status, limit),
             )
         rows = await cursor.fetchall()

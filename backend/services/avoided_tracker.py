@@ -125,6 +125,22 @@ async def _check_token_price(db, web3, ws_manager, token: dict, now: datetime):
             (token["id"],),
         )
 
+        # Record the rug against the creator's reputation so repeat offenders
+        # score worse on future scans. Best-effort — wrapping the whole block
+        # in try/except keeps the avoided-tracker cycle resilient.
+        try:
+            cursor = await db.execute(
+                "SELECT creator_address FROM tokens WHERE address = ?",
+                (token["token_address"],),
+            )
+            creator_row = await cursor.fetchone()
+            creator = (dict(creator_row).get("creator_address") or "") if creator_row else ""
+            if creator:
+                from services.creator_reputation import record_rug
+                await record_rug(creator)
+        except Exception as e:
+            print(f"[AvoidedTracker] creator rug update failed: {e}")
+
         # Calculate estimated savings (what the user would have lost)
         estimated_savings = token.get("estimated_savings_bnb", 0.05)
         if price_at_flag > 0 and current_price >= 0:

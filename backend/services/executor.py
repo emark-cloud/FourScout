@@ -225,6 +225,21 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             )
             await db.commit()
 
+            # Feed the close outcome back into the creator reputation cache.
+            # Best-effort — a failure here must not unwind the trade.
+            try:
+                cursor = await db.execute(
+                    "SELECT creator_address FROM tokens WHERE address = ?",
+                    (token_address,),
+                )
+                row = await cursor.fetchone()
+                creator = (dict(row).get("creator_address") or "") if row else ""
+                if creator:
+                    from services.creator_reputation import record_close
+                    await record_close(creator, round(pnl, 8))
+            except Exception as e:
+                print(f"[Executor] creator outcome update failed: {e}")
+
             # Broadcast trade_executed
             if ws_manager:
                 await ws_manager.broadcast("trade_executed", {

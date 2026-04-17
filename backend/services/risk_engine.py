@@ -51,24 +51,59 @@ def _get_market() -> MarketContext:
 # ──────────────────────────────────────────
 # Signal 1: Creator History (HIGH weight=3)
 # ──────────────────────────────────────────
-def score_creator_history(creator_address: str) -> SignalResult:
-    """Check if creator has launched tokens before and their outcomes."""
+async def score_creator_history(creator_address: str) -> SignalResult:
+    """Check if creator has launched tokens before and fold in outcomes.
+
+    Cached in `creator_reputation` with a 1h TTL — the live path scans ~50k
+    blocks of TokenCreate events, which is expensive to repeat for the same
+    creator. The cached row also carries outcome counters (confirmed_rugs,
+    losing_closes, profitable_closes) so the signal can penalize creators
+    whose past tokens rugged or closed badly.
+    """
     if not creator_address:
         return SignalResult("creator_history", 5, 3, "No creator address available")
 
-    web3 = _get_web3()
-    history = web3.get_creator_history(creator_address)
+    from services import creator_reputation
 
-    if not history:
-        return SignalResult("creator_history", 7, 3, "First-time creator — no prior launches found")
+    cached = await creator_reputation.get_cached(creator_address)
+    if creator_reputation.is_fresh(cached):
+        count = int(cached["launch_count"] or 0) if cached else 0
+    else:
+        # Cache miss or stale — run the live chain query and write back.
+        web3 = _get_web3()
+        history = await asyncio.to_thread(web3.get_creator_history, creator_address)
+        count = len(history) if history else 0
+        await creator_reputation.upsert_launch_count(creator_address, count)
+        cached = await creator_reputation.get_cached(creator_address)
 
-    count = len(history)
-    if count >= 4:
-        return SignalResult("creator_history", 1, 3, f"Serial launcher: {count} tokens in recent history — high rug risk")
-    if count >= 2:
-        return SignalResult("creator_history", 4, 3, f"Creator has {count} prior tokens — moderate concern")
+    rugs = int((cached or {}).get("confirmed_rugs") or 0)
+    losing = int((cached or {}).get("losing_closes") or 0)
+    profitable = int((cached or {}).get("profitable_closes") or 0)
 
-    return SignalResult("creator_history", 8, 3, f"Creator has {count} prior token(s)")
+    # Base score from launch count
+    if count == 0:
+        score = 7
+        detail = "First-time creator — no prior launches found"
+    elif count >= 4:
+        score = 1
+        detail = f"Serial launcher: {count} tokens in recent history — high rug risk"
+    elif count >= 2:
+        score = 4
+        detail = f"Creator has {count} prior tokens — moderate concern"
+    else:
+        score = 8
+        detail = f"Creator has {count} prior token(s)"
+
+    # Outcome adjustments — capped so a single bad or good close can't fully
+    # flip the score. Rugs weigh hardest; profitable closes partially offset.
+    penalty = min(4, 2 * rugs + losing)
+    bonus = min(3, profitable)
+    score = max(0, min(10, score - penalty + bonus))
+
+    if rugs or losing or profitable:
+        detail += f" | outcomes: {profitable} profitable, {losing} losing, {rugs} rugs"
+
+    return SignalResult("creator_history", score, 3, detail)
 
 
 # ──────────────────────────────────────────
@@ -402,7 +437,7 @@ async def compute_risk_score(token_address: str, token_data: dict = None) -> Ris
     # block the event loop, so fan them out via to_thread and await in parallel
     # alongside the async market signal.
     signals = list(await asyncio.gather(
-        asyncio.to_thread(score_creator_history, creator),
+        score_creator_history(creator),
         asyncio.to_thread(score_holder_concentration, token_address),
         asyncio.to_thread(score_liquidity, token_address),
         asyncio.to_thread(score_bonding_velocity, token_address),

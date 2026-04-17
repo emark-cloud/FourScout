@@ -73,9 +73,9 @@ meme-guard/
 │   │   ├── tx_builder.py        # Quote preview preparation (buy/sell)
 │   │   ├── executor.py          # Trade execution via CLI (buy + sell with slippage protection)
 │   │   ├── approval_gate.py     # 4 approval modes (approve_each, per_session, budget_threshold, monitor_only)
-│   │   ├── position_tracker.py  # PnL tracking + configurable thresholds + AI exit analysis + auto-sell
-│   │   ├── avoided_tracker.py   # "What I Avoided" background checker (NOT YET IMPLEMENTED)
-│   │   └── agent_identity.py    # ERC-8004 registration (NOT YET IMPLEMENTED)
+│   │   ├── position_tracker.py  # PnL tracking + per-position AI cooldown + auto-sell
+│   │   ├── avoided_tracker.py   # "What I Avoided" background checker (live — 39+ flagged)
+│   │   └── agent_identity.py    # ERC-8004 registration (live)
 │   ├── routes/
 │   │   ├── tokens.py            # GET /api/tokens, GET /api/tokens/:address
 │   │   ├── actions.py           # GET /api/actions/pending, POST /api/actions/approve, POST /api/actions/reject
@@ -84,15 +84,17 @@ meme-guard/
 │   │   ├── activity.py          # GET /api/activity
 │   │   ├── avoided.py           # GET /api/avoided
 │   │   ├── watchlist.py         # GET/POST/DELETE /api/watchlist
+│   │   ├── agent.py             # ERC-8004 identity endpoints
 │   │   └── chat.py              # POST /api/chat, DELETE /api/chat/history
 │   ├── abis/                    # Contract ABIs (JSON, lite versions)
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx              # Routes + WagmiProvider + NotificationProvider + useWebSocket
+│   │   ├── App.jsx              # 7 routes + WagmiProvider + NotificationProvider + useWebSocket
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx    # Live token feed + persona badge + budget bar + stats
-│   │   │   ├── OpportunityDetail.jsx  # 8-signal breakdown + rationale + approve/reject + ChatPanel
+│   │   │   ├── Landing.jsx      # Public marketing page at / (Scan → Score → Decide → Track)
+│   │   │   ├── Dashboard.jsx    # Live token feed + persona badge + budget bar + stats (at /dashboard)
+│   │   │   ├── OpportunityDetail.jsx  # 8-signal breakdown + rationale + approve/reject + ChatPanel + RiskRadar
 │   │   │   ├── Positions.jsx    # Active/closed positions with PnL
 │   │   │   ├── Avoided.jsx      # Avoided rugs stats + cards
 │   │   │   ├── Activity.jsx     # Event feed (polls every 10s)
@@ -100,10 +102,12 @@ meme-guard/
 │   │   ├── components/
 │   │   │   ├── TokenCard.jsx
 │   │   │   ├── RiskBadge.jsx
+│   │   │   ├── RiskRadar.jsx    # 8-signal radar chart visualization
 │   │   │   ├── PersonaSelector.jsx
 │   │   │   ├── BudgetBar.jsx
 │   │   │   ├── ChatPanel.jsx    # Floating AI chat (global + token-scoped)
 │   │   │   ├── ToastNotifications.jsx  # Real-time toast alerts from WebSocket events
+│   │   │   ├── NotificationBell.jsx    # Navbar bell with notification history dropdown
 │   │   │   └── Navbar.jsx
 │   │   ├── hooks/
 │   │   │   ├── useWallet.js     # wagmi BSC config
@@ -117,6 +121,9 @@ meme-guard/
 ├── TODO.md                      # Build checklist with phase status
 ├── COMPETITIVE_ANALYSIS.md      # BuildersClaw benchmark analysis
 ├── HANDOFF.md                   # This file
+├── Dockerfile                   # Backend container image
+├── docker-compose.yml           # One-command self-host (backend + CLI sidecar)
+├── README.md                    # Public README with Docker quickstart
 ├── .env.example
 └── .gitignore
 ```
@@ -127,9 +134,9 @@ meme-guard/
 
 **Spec rename:** `Memeguard.md` is now `FourScout.md`. A new §18 "Roadmap: Non-Custodial Session Keys" documents the post-hackathon evolution from single-tenant self-hosted (one `PRIVATE_KEY`) to multi-tenant ERC-4337 session keys. Phase 4 in `TODO.md` tracks that scope as design-only — no implementation in the current branch.
 
-**Phase 2 verified, Phase 3 largely complete.** Avoided tracker is populating live (39+ red-flagged tokens, price history filling naturally over 1h/6h/24h). All UI features Playwright-verified except wallet-gated flows (8004 register tx + trade approve-sign — require MetaMask in browser). Docker self-host artifacts added.
+**Phase 2 verified, Phase 3 complete.** Avoided tracker is populating live (39+ red-flagged tokens, price history filling naturally over 1h/6h/24h). Wallet-gated smoke test passed (position_id 4, tx `0x8a9e…dbdb`). Public landing page shipped at `/`, Dashboard moved to `/dashboard`. Gemini cost-reduction pass shipped (`f4523b4`) — awaiting a final live-LLM verification before deploy + demo recording (see TODO Phase 3).
 
-### COMPLETE (committed at `c23acbf`)
+### COMPLETE (latest commit: `5449098`)
 
 **Buy loop (verified end-to-end with real BNB):**
 - Scanner discovers tokens → risk engine scores with 8 signals → persona engine proposes buy → approval gate creates pending_action with CLI quote preview → user approves → executor gets fresh quote with slippage protection → CLI buys on-chain → position recorded with correct token quantity → position tracker monitors PnL every 60s
@@ -146,7 +153,7 @@ meme-guard/
 - AI chat advisor: context-aware Gemini chat on every page + token-scoped on OpportunityDetail
 - Multi-signal narrative synthesis: LLM correlates 8 signals into pattern-detecting narratives
 - AMBER escalation: `deep_analyze_amber()` returns lean_buy/lean_skip/watch with confidence
-- AI-driven position monitoring: `analyze_position_exit()` runs every 5 min with drift detection (capped at 3 LLM calls/cycle)
+- AI-driven position monitoring: `analyze_position_exit()` runs every `AI_EXIT_INTERVAL_CYCLES` (default 10 min) with drift detection, per-position 15-min cooldown + 3% PnL-delta guard, and a 3-LLM-call-per-cycle cap
 
 **Exit strategy:**
 - Configurable take-profit/stop-loss thresholds (config keys: `take_profit_pct`, `stop_loss_pct`, `auto_sell_enabled`)
@@ -154,23 +161,26 @@ meme-guard/
 - Exit Strategy settings UI section with take profit %, stop loss %, auto-sell toggle
 
 **Real-time alerting:**
-- 6 WebSocket events: new_token, risk_scored, risk_alert, action_proposed, position_update, trade_executed
-- Toast notification system: real-time visual alerts for all important WS events
+- 7 WebSocket events: new_token, risk_scored, risk_alert, action_proposed, position_update, trade_executed, avoided_update
+- Toast notification system: real-time visual alerts for all important WS events (clickable → deep-link to relevant page)
+- NotificationBell in Navbar with persistent history dropdown
 - Position update toasts filtered to milestones only (50%+, 100%+, -40%+)
 - App.jsx restructured: split into App (providers) and AppContent (hooks + NotificationProvider)
 
+**Public surface + cost controls:**
+- Landing page at `/` (Scan → Score → Decide → Track four-step flow, closing CTA, GitHub link)
+- Dashboard relocated to `/dashboard`; Navbar logo → `/`
+- Gemini cost reduction (`f4523b4`): per-position AI cooldown, tighter drift bands, `max_output_tokens` trimmed to realistic caps (200/256/200), chat history window 10→6, TTL-cached config context, orphaned `classify_description()` removed
+- Docker self-host: `Dockerfile` + `docker-compose.yml` for one-command deploy
+
 ### WHAT NEEDS TO BE TESTED
 
-**To finish Phase 2:**
-1. Test the sell flow: buy a token → wait for position tracker to propose exit (or manually trigger) → approve → verify position closes, trade recorded, PnL correct
-2. Test toast notifications: start frontend, approve a trade, verify toasts appear
-3. Test exit strategy settings: change thresholds in Settings, verify position_tracker uses them
-4. Test AI monitoring: with Gemini key, hold a position for 5+ minutes, check backend logs for AI analysis
-
-**Phase 3 — Polish & Demo Features (largely complete; see TODO.md):**
-- [x] ERC-8004 agent identity registration, "What I Avoided" tracker, risk radar chart, behavioral nudge, watchlist UI, real volume signal, visual polish, README
+**Phase 3 — Polish & Demo Features (see TODO.md):**
+- [x] ERC-8004 agent identity registration, "What I Avoided" tracker (live, 39+), risk radar chart, behavioral nudge, watchlist UI, real volume signal (wash-trading detection), visual polish, README, landing page
+- [x] Wallet-gated smoke test (8004 register + trade approve via MetaMask) — position_id 4, tx `0x8a9e…dbdb`
+- [x] Gemini cost-reduction pass (`f4523b4`)
+- [ ] Live-LLM verification of cost-reduction changes (blocked on refreshed Gemini key — 4 checks: chat reply path, output-token caps not truncated, `_should_call_ai` cooldown suppression, `AI_EXIT_INTERVAL_CYCLES` cadence). **Blocks deploy + demo.**
 - [ ] Deployment (Docker artifacts added; Vercel + Railway/Render still to provision)
-- [ ] Wallet-gated smoke test (8004 register + trade approve via MetaMask)
 - [ ] Demo video + DoraHacks BUIDL submission
 
 **Phase 4 — Non-Custodial Session Keys (roadmap only, not started):**
@@ -182,7 +192,7 @@ meme-guard/
 
 1. **Deterministic risk scoring** — AI only explains, never decides. Rules engine + weighted signals.
 2. **AI depth over breadth** — LLM for interactive advising (chat), narrative synthesis, escalation analysis, position exit analysis. Not just labeling.
-3. **Deterministic-first monitoring** — Numeric thresholds every 60s (cheap). AI analysis every 5 min, only when drift triggers fire. Max 3 LLM calls per cycle.
+3. **Deterministic-first monitoring** — Numeric thresholds every 60s (cheap). AI analysis every `AI_EXIT_INTERVAL_CYCLES` (default 10 min), only when drift triggers fire AND per-position cooldown (15 min / 3% PnL delta) allows. Max 3 LLM calls per cycle.
 4. **Human in the loop** — All trades require approval (4 modes with varying autonomy). Auto-sell is a separate opt-in toggle.
 5. **Budget caps are hard limits** — Server-side enforcement, never bypassed.
 6. **Hybrid Four.meme integration** — CLI for trading, direct Web3.py for risk data the CLI doesn't expose.
@@ -248,7 +258,7 @@ The backend `config.py` loads from `backend/.env` first, then falls back to `../
 | 3 | Bonding curve velocity | HIGH (3) | Web3.py: TokenManagerHelper3.getTokenInfo() |
 | 4 | Liquidity depth & age | MEDIUM (2) | Web3.py: getTokenInfo() funds + liquidityAdded |
 | 5 | Tax token flags | MEDIUM (2) | CLI: fourmeme tax-info / Web3.py: TaxToken ABI |
-| 6 | Volume consistency | MEDIUM (2) | CLI: fourmeme events (stub — not fully implemented) |
+| 6 | Volume consistency | MEDIUM (2) | CLI: fourmeme events (wash-trading detection via trade clustering) |
 | 7 | Social signal | LOW (1) | Four.meme API + VADER sentiment |
 | 8 | Market context | LOW (1) | CoinGecko + Alternative.me Fear & Greed |
 
@@ -296,6 +306,7 @@ All defaults set to 0.0001 BNB for testing.
 | `action_proposed` | risk_engine.py / position_tracker.py | token_address, action_type, amount_bnb, rationale |
 | `position_update` | position_tracker.py | position_id, token_address, current_price, pnl_bnb |
 | `trade_executed` | executor.py | token_address, side, tx_hash, amount_bnb, pnl_bnb |
+| `avoided_update` | avoided_tracker.py | token_address, price_change_pct, period |
 
 ---
 
@@ -309,11 +320,11 @@ All defaults set to 0.0001 BNB for testing.
 
 4. **Pyright warnings** — Several `response.text` warnings about potentially None return from Gemini SDK. These are pre-existing and don't cause runtime issues. Also `risk_percentage` unused in persona_engine.py (intentional, kept for potential future use).
 
-5. **Volume consistency signal** — Currently a stub in risk_engine.py. TODO to replace with real CLI events analysis.
+5. **Frontend polls** — Dashboard polls every 15s, Activity/Positions every 10s. WebSocket events exist but most pages don't react to them (they poll instead). ToastNotifications + NotificationBell consume WS events directly.
 
-6. **Frontend polls** — Dashboard polls every 15s, Activity/Positions every 10s. WebSocket events exist but most pages don't react to them (they poll instead). The new ToastNotifications component is the first to actually consume WS events.
+6. **Position #1 in DB** — From the first buy test before we fixed the executor. Has token_quantity=0 and entry_price=0. Was manually closed (status='closed'). Position #2+ are the valid ones with correct data.
 
-7. **Position #1 in DB** — From the first buy test before we fixed the executor. Has token_quantity=0 and entry_price=0. Was manually closed (status='closed'). Position #2 is the valid one with correct data.
+7. **Gemini cost changes untested against live LLM** — The `f4523b4` commit shipped per-position cooldown + output-token caps + chat history trim. Needs a refreshed Gemini key to verify end-to-end (see TODO Phase 3). Blocks deploy + demo recording.
 
 ---
 
@@ -331,13 +342,20 @@ Full analysis at `COMPETITIVE_ANALYSIS.md`. Key patterns adopted from BuildersCl
 ## 16. Git History
 
 ```
-c23acbf Complete sell flow, AI position monitoring, auto-sell, toast notifications, and handoff doc
-d5c782b Phase 2: Brain — auto-propose pipeline, trade execution, AI advisor, and position tracking
-4a98030 Fix Phase 1 bugs: HTTP status codes, LLM integration, slippage protection, CORS, and daily budget tracking
-0df96f3 Integrate competitive analysis: add AI advisor, narrative synthesis, and reprioritized build phases
-12a2d2d Update Memeguard.md to reflect current implementation
-258c8f7 Fix Web3 token info decoding for V2 tokens and scanner API field mapping
-1e4f776 Phase 1: Foundation — full project scaffold with live token feed and risk scoring
+5449098 Update FourScout.md: Docker, landing page, cost-reduction cadence, file structure
+f4523b4 Reduce Gemini cost: exit-AI cooldown, tighter drift bands, output caps
+10b89e8 Add public marketing landing page at /, move Dashboard to /dashboard
+7f3edf7 Trim activity feed, add clickable toasts + notification history
+2f49cca Update FourScout.md phases + TODO wallet-gated test passed
+cf04595 Rename spec to FourScout, add session-key roadmap, add Docker self-host
+140b476 Update TODO with Phase 3 verification results
+295bd0f Fix SQLite write contention and force-RED ghost tokens
+3476eb4 Fix event loop blocking by running sync web3 signals in threads
+8cf672a Fix token name display, SQLite concurrency, and sell execution flow
+7be3a3d Phase 3: ERC-8004 identity, avoided tracker, risk radar, behavioral nudge, watchlist UI, volume signal, visual polish
+f09ec95 Fix 6 bugs from codebase review: type safety, race condition, input validation
+29d3c45 Rename to FourScout, migrate to Gemini 2.5 Flash, fix thinking-mode truncation
+db7b0b5 Complete sell flow, AI position monitoring, auto-sell, toast notifications, and handoff doc
 ```
 
 **All changes are committed and pushed.** No uncommitted work.

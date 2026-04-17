@@ -226,12 +226,12 @@ A radar chart or stacked signal bar visualization for the 8-signal breakdown on 
 Continuous AI-powered position analysis that goes beyond simple price-based stop-loss/take-profit. The system combines deterministic threshold checks with selective AI analysis.
 
 - **Deterministic layer (every 60s):** Checks positions against user-configurable take-profit/stop-loss thresholds. Fast, cheap, no LLM cost.
-- **AI layer (every 5 min, selective):** Calls Gemini to analyze positions where drift triggers fire:
-  - PnL approaching stop-loss (-30% to threshold) or take-profit (50% to threshold)
-  - Holder concentration changed significantly since entry
-  - Position stale (>30 min, <5% price movement)
-- AI returns structured `{ recommendation: hold|exit, confidence: 0-100, reasoning }` — proposes exit with natural-language rationale if confidence >= 70
-- Capped at 3 LLM calls per cycle to stay within Gemini free-tier (15 RPM)
+- **AI layer (configurable, selective):** Calls Gemini to analyze positions where drift triggers fire. Cadence is `AI_EXIT_INTERVAL_CYCLES` (default every 10 cycles = 10 min). Triggers:
+  - PnL in the last 30% of the path toward stop-loss or take-profit
+  - Position stale (>30 min, no meaningful movement)
+- **Per-position cooldown:** a position that was AI-analyzed in the last 15 min is skipped unless its PnL has moved ≥3% since that check — stops re-billing the LLM to re-confirm unchanged state.
+- AI returns structured `{ recommendation: hold|exit, confidence: 0-100, reasoning }` — proposes exit with natural-language rationale if confidence >= 70.
+- Capped at 3 LLM calls per cycle; output capped at 200 tokens per call.
 
 ### N. Configurable Auto-Sell
 
@@ -327,7 +327,16 @@ User opens "What I Avoided" tab
 
 ## 7. Web App Pages
 
-### Dashboard (Home)
+### Landing (`/`)
+
+Public marketing surface shown to first-time visitors and community voters:
+
+- Hero + tagline + one-paragraph pitch
+- "How it works" — 4-step flow (Scan → Score → Decide → Track)
+- "Why FourScout" — 4-card feature grid (8-signal risk engine, personas × approval modes, AI depth, ERC-8004 identity)
+- Primary CTA "Launch Dashboard →" → `/dashboard`; footer links to GitHub, Four.Meme AI Sprint page, "Built on BNB Chain"
+
+### Dashboard (`/dashboard`)
 
 - Active persona badge + budget remaining
 - Live opportunity feed (new launches, scored and ranked)
@@ -374,12 +383,12 @@ User opens "What I Avoided" tab
 
 - Persona selection (switch anytime)
 - Budget caps (all configurable)
-- Approval mode
+- Approval mode (4 modes)
 - Exit strategy: take-profit %, stop-loss %, auto-sell toggle
-- Wallet management
-- Agent wallet ERC-8004 registration
-- Watchlist management
+- Agent wallet ERC-8004 registration (live on-chain tx)
+- Watchlist management (tokens + creator wallets)
 - Slippage / cooldown preferences
+- Notification bell in the navbar (unread count + history drawer) — separate from transient toasts
 
 ---
 
@@ -452,7 +461,7 @@ User opens "What I Avoided" tab
 | AI/LLM | Google Gemini 2.5 Flash (`google-genai` SDK) | Rationale generation, token description analysis, sentiment |
 | Wallet | wagmi + viem (frontend) | Standard BSC wallet connection |
 | Market Data | Four.meme API + CoinGecko + Alternative.me | Token feeds, BNB price, Fear & Greed index |
-| Deploy | Vercel (frontend) + Railway (backend) | Free tier sufficient for demo |
+| Deploy | Docker (self-host) or Railway/Render (backend) + Vercel (frontend) | `Dockerfile` + `docker-compose.yml` ship in repo with SQLite volume persistence. Hosted option for a public URL. |
 
 ### Four.meme Integration Points
 
@@ -480,8 +489,7 @@ Use AI where it adds judgment. Use deterministic logic where it doesn't.
 |------|--------|
 | Risk signal computation | Deterministic (Web3.py reads + math) |
 | Score aggregation | Rules engine (weighted scoring, 8 signals) |
-| Rationale generation | LLM (Google Gemini 2.5 Flash) — multi-signal narrative synthesis |
-| Token description analysis | LLM (classify as legit/scam/hype) |
+| Rationale generation | LLM (Google Gemini 2.5 Flash) — multi-signal narrative synthesis, capped at 200 output tokens |
 | Interactive AI advisor | LLM (Gemini) — context-aware conversational chat about tokens, risks, decisions |
 | Social sentiment | VADER (lightweight, no API key needed) |
 | Persona action decision | Rules engine (persona config → action) |
@@ -752,6 +760,8 @@ CREATE INDEX idx_activity_token ON activity (token_address);
 - [x] "What I Avoided" background job: checks red-flagged token prices at 1h/6h/24h, confirmed rug detection, savings tally (39+ tokens flagged live)
 - [x] Risk visualization: recharts `RadarChart` on OpportunityDetail showing 8-signal breakdown
 - [x] Backend Docker self-host (`Dockerfile` + `docker-compose.yml` + `.dockerignore`, SQLite volume persistence verified)
+- [x] Public marketing landing page at `/` with CTA to `/dashboard` (separate pitch surface from the operator dashboard)
+- [x] LLM cost reductions: per-position AI cooldown (15 min / 3% PnL delta), tighter drift bands, configurable cadence, output-token caps (commit `f4523b4`) — runtime verification blocked on refreshed Gemini credits
 - [ ] Deployment: provision Railway/Render (backend) + Vercel (frontend) for a live URL
 
 #### Medium Priority (Completeness)
@@ -881,24 +891,30 @@ meme-guard/
 │       ├── config_routes.py       # GET/PUT /api/config, PUT /api/config/bulk
 │       ├── watchlist.py           # GET/POST/DELETE /api/watchlist
 │       ├── activity.py            # GET /api/activity
-│       └── chat.py                # POST /api/chat (interactive AI advisor)
+│       ├── chat.py                # POST /api/chat (interactive AI advisor)
+│       └── agent.py               # ERC-8004 register/status
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx                # BrowserRouter (6 routes) + WagmiProvider + QueryClientProvider
-│   │   ├── index.css              # @import "tailwindcss" + Binance dark theme CSS variables
+│   │   ├── App.jsx                # BrowserRouter (7 routes) + WagmiProvider + QueryClientProvider + NotificationProvider
+│   │   ├── index.css              # @import "tailwindcss" + Binance dark theme CSS variables + animations
 │   │   ├── pages/
+│   │   │   ├── Landing.jsx        # Public marketing page: hero, 4-step flow, feature grid, CTA
 │   │   │   ├── Dashboard.jsx      # Live token feed + persona badge + budget bar + stats
-│   │   │   ├── OpportunityDetail.jsx  # Full 8-signal risk breakdown + rationale + approve/reject
+│   │   │   ├── OpportunityDetail.jsx  # Full 8-signal risk breakdown + radar + rationale + approve/reject
 │   │   │   ├── Positions.jsx      # Active/closed positions table with PnL
 │   │   │   ├── Avoided.jsx        # Stats banner + avoided token cards + savings tally
 │   │   │   ├── Activity.jsx       # Chronological event feed
-│   │   │   └── Settings.jsx       # Persona selector + approval mode + budget caps
+│   │   │   └── Settings.jsx       # Persona, approval mode, budget, exit strategy, 8004, watchlist
 │   │   ├── components/
-│   │   │   ├── Navbar.jsx         # Navigation + wallet connect button
+│   │   │   ├── Navbar.jsx         # Navigation + wallet connect button + notification bell
 │   │   │   ├── TokenCard.jsx      # Token info + risk badge + bonding curve progress bar
 │   │   │   ├── RiskBadge.jsx      # Green/amber/red pill badge
+│   │   │   ├── RiskRadar.jsx      # recharts RadarChart for the 8-signal breakdown
 │   │   │   ├── PersonaSelector.jsx # 3 persona cards with descriptions
-│   │   │   └── BudgetBar.jsx      # Daily budget progress indicator
+│   │   │   ├── BudgetBar.jsx      # Daily budget progress indicator
+│   │   │   ├── ChatPanel.jsx      # Floating AI advisor drawer (global + per-token scopes)
+│   │   │   ├── ToastNotifications.jsx # Top-right transient toasts + NotificationProvider context
+│   │   │   └── NotificationBell.jsx # Navbar bell: unread count + history drawer
 │   │   ├── hooks/
 │   │   │   ├── useWallet.js       # wagmi config for BSC (chain ID 56), injected connector
 │   │   │   └── useWebSocket.js    # Auto-reconnecting WebSocket, message buffer, getByType()
@@ -907,8 +923,14 @@ meme-guard/
 │   ├── package.json
 │   └── vite.config.js             # React + Tailwind plugins, /api and /ws proxy to backend
 ├── fourmeme-cli/                  # Local npm install of @four-meme/four-meme-ai (gitignored)
+├── Dockerfile                     # Multi-stage Python + Node backend image for self-host
+├── docker-compose.yml             # Backend service + SQLite volume mount
 ├── FourScout.md                   # This file — full MVP specification
 ├── CLAUDE.md                      # Project reference for development
+├── README.md                      # Setup, architecture, deployment, security model
+├── HANDOFF.md                     # Session handoff notes
+├── COMPETITIVE_ANALYSIS.md        # Comparison with other BSC memecoin tooling
+├── TODO.md                        # Phase tracking + verification punch list
 ├── .env.example
 └── .gitignore
 ```
@@ -933,6 +955,9 @@ GEMINI_API_KEY=               # Google Gemini API key (free tier)
 # App
 DATABASE_PATH=./data/fourscout.db
 SCAN_INTERVAL_SECONDS=30
+
+# LLM cost controls
+AI_EXIT_INTERVAL_CYCLES=10    # Position-tracker cycles between AI exit checks (cycle = 60s)
 ```
 
 Contract addresses are hardcoded in `backend/config.py` (Contracts class) — not environment variables, since they don't change between environments.

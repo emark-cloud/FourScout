@@ -1,7 +1,6 @@
 """Token scanner — discovers new Four.meme launches and queues them for risk scoring."""
 
 import asyncio
-import json
 from datetime import datetime, timezone
 
 from config import settings
@@ -88,12 +87,6 @@ async def scan_new_tokens(api, ws_manager):
                     1 if token.get("status") == "GRADUATED" else 0,
                     now,
                 ),
-            )
-
-            # Log activity
-            await db.execute(
-                "INSERT INTO activity (event_type, token_address, detail, created_at) VALUES (?, ?, ?, ?)",
-                ("new_token", address, json.dumps({"name": token.get("name", ""), "symbol": token.get("shortName", "")}), now),
             )
 
             new_count += 1

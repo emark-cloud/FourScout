@@ -6,6 +6,7 @@ export default function Avoided() {
   const [avoided, setAvoided] = useState([])
   const [stats, setStats] = useState({ total_flagged: 0, confirmed_rugs: 0, estimated_savings_bnb: 0 })
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     async function load() {
@@ -34,29 +35,37 @@ export default function Avoided() {
 
       {/* Stats banner */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center">
+        <button
+          onClick={() => setFilter('all')}
+          className={`bg-[var(--bg-card)] rounded-xl p-4 text-center transition hover:brightness-125 ${filter === 'all' ? 'ring-2 ring-[var(--accent-gold)]' : ''}`}
+        >
           <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total_flagged}</div>
           <div className="text-xs text-[var(--text-secondary)]">Tokens Flagged</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center">
+        </button>
+        <button
+          onClick={() => setFilter('rugs')}
+          className={`bg-[var(--bg-card)] rounded-xl p-4 text-center transition hover:brightness-125 ${filter === 'rugs' ? 'ring-2 ring-[#F6465D]' : ''}`}
+        >
           <div className="text-2xl font-bold text-[#F6465D]">{stats.confirmed_rugs}</div>
           <div className="text-xs text-[var(--text-secondary)]">Confirmed Rugs</div>
-        </div>
+        </button>
         <div className="bg-[var(--bg-card)] rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-[#0ECB81]">{stats.estimated_savings_bnb.toFixed(3)} BNB</div>
           <div className="text-xs text-[var(--text-secondary)]">Estimated Savings</div>
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-[var(--text-secondary)]">Loading...</div>
-      ) : avoided.length === 0 ? (
-        <div className="text-center py-12 text-[var(--text-secondary)]">
-          No tokens flagged yet. The agent is scanning...
-        </div>
-      ) : (
+      {(() => {
+        const filtered = filter === 'rugs' ? avoided.filter((i) => i.confirmed_rug) : avoided
+        if (loading) return <div className="text-center py-12 text-[var(--text-secondary)]">Loading...</div>
+        if (filtered.length === 0) return (
+          <div className="text-center py-12 text-[var(--text-secondary)]">
+            {filter === 'rugs' ? 'No confirmed rugs yet.' : 'No tokens flagged yet. The agent is scanning...'}
+          </div>
+        )
+        return (
         <div className="space-y-3">
-          {avoided.map((item) => {
+          {filtered.map((item) => {
             const priceNow = item.price_24h_later || item.price_6h_later || item.price_1h_later
             const priceDrop = priceNow && item.price_at_flag
               ? ((priceNow - item.price_at_flag) / item.price_at_flag * 100).toFixed(1)
@@ -92,7 +101,8 @@ export default function Avoided() {
             )
           })}
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

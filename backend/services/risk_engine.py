@@ -503,10 +503,6 @@ async def score_token(token_address: str, ws_manager=None):
             "INSERT INTO scans (token_address, scan_type, risk_score, created_at) VALUES (?, ?, ?, ?)",
             (token_address, "risk_score", result.grade, now),
         )
-        await db.execute(
-            "INSERT INTO activity (event_type, token_address, detail, created_at) VALUES (?, ?, ?, ?)",
-            ("risk_scored", token_address, json.dumps({"grade": result.grade, "pct": result.percentage}), now),
-        )
         if result.grade == "red":
             await db.execute(
                 """INSERT OR IGNORE INTO avoided (token_address, token_name, risk_score, risk_rationale,

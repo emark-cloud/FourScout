@@ -2,14 +2,10 @@ import { useState, useEffect } from 'react'
 import { getActivity } from '../services/api'
 
 const EVENT_ICONS = {
-  new_token: { icon: '\u{2728}', label: 'New Token' },
-  risk_scored: { icon: '\u{1F50D}', label: 'Risk Scored' },
-  action_proposed: { icon: '\u{1F4CB}', label: 'Action Proposed' },
   approve: { icon: '\u{2705}', label: 'Approved' },
   reject: { icon: '\u{274C}', label: 'Rejected' },
   trade_executed: { icon: '\u{1F4B0}', label: 'Trade Executed' },
-  alert: { icon: '\u{26A0}', label: 'Alert' },
-  override: { icon: '\u{26A1}', label: 'Override' },
+  avoided_confirmed: { icon: '\u{1F6E1}', label: 'Rug Confirmed' },
 }
 
 function timeAgo(dateStr) {
@@ -70,18 +66,16 @@ export default function Activity() {
                       </span>
                     )}
                   </div>
-                  {(detail.name || detail.side || detail.tx_hash) && (
+                  {(detail.side || detail.tx_hash) && (
                     <p className="text-xs text-[var(--text-secondary)]">
-                      {detail.name && `${detail.name} `}
-                      {detail.symbol && `($${detail.symbol}) `}
-                      {detail.side && `${detail.side} `}
-                      {detail.amount_bnb && `${detail.amount_bnb} BNB `}
+                      {detail.side === 'buy' && `Buy ${detail.amount_bnb} BNB `}
+                      {detail.side === 'sell' && `Sell · PnL ${detail.pnl_bnb > 0 ? '+' : ''}${detail.pnl_bnb} BNB `}
                       {detail.tx_hash && (
                         <a
                           href={`https://bscscan.com/tx/${detail.tx_hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[var(--accent-gold)]"
+                          className="text-[var(--accent-gold)] ml-1"
                         >
                           View TX
                         </a>

@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useWallet } from '../hooks/useWallet'
+import NotificationBell from './NotificationBell'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard' },
@@ -43,22 +44,25 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Wallet */}
-        {isConnected && address ? (
-          <button
-            onClick={disconnect}
-            className="bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-          >
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </button>
-        ) : (
-          <button
-            onClick={connect}
-            className="bg-[var(--accent-gold)] text-black font-semibold rounded-lg px-4 py-1.5 text-sm cursor-pointer hover:opacity-90 transition-opacity"
-          >
-            Connect Wallet
-          </button>
-        )}
+        {/* Bell + Wallet */}
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          {isConnected && address ? (
+            <button
+              onClick={disconnect}
+              className="bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </button>
+          ) : (
+            <button
+              onClick={connect}
+              className="bg-[var(--accent-gold)] text-black font-semibold rounded-lg px-4 py-1.5 text-sm cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              Connect Wallet
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   )

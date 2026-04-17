@@ -25,6 +25,30 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
         token_name = token_row["name"] if token_row else token_address[:10] + "..."
 
         if action_type == "buy":
+            # Re-validate budget at execute time. A stale action queued before
+            # other trades filled can push the day over cap; trust only the DB.
+            from database import get_all_config
+            cfg = await get_all_config()
+            max_per_trade = float(cfg.get("max_per_trade_bnb", 0.05))
+            max_per_day = float(cfg.get("max_per_day_bnb", 0.3))
+            if amount_bnb > max_per_trade:
+                return {
+                    "status": "rejected",
+                    "message": f"amount {amount_bnb} BNB exceeds max_per_trade ({max_per_trade})",
+                }
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            cursor = await db.execute(
+                "SELECT COALESCE(SUM(amount_bnb), 0) as spent FROM trades "
+                "WHERE side = 'buy' AND executed_at >= ?",
+                (today,),
+            )
+            spent_today = float((await cursor.fetchone())["spent"])
+            if spent_today + amount_bnb > max_per_day:
+                return {
+                    "status": "rejected",
+                    "message": f"would exceed max_per_day ({spent_today + amount_bnb:.4f} > {max_per_day})",
+                }
+
             # Convert BNB to Wei
             funds_wei = str(int(amount_bnb * 10**18))
 
@@ -45,6 +69,10 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             result = await cli.buy_by_funds(token_address, funds_wei, min_amount_wei)
 
             tx_hash = result.get("txHash", result.get("hash", ""))
+            if not tx_hash:
+                # CLI reported success-shaped result with no hash — treat as failure
+                # rather than writing a phantom position with an empty tx_hash.
+                return {"status": "error", "message": f"CLI returned no tx_hash: {result}"}
 
             # CLI only returns txHash; get token quantity from the pre-buy quote
             # Convert from wei (18 decimals) to human-readable

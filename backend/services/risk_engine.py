@@ -508,6 +508,21 @@ async def score_token(token_address: str, ws_manager=None):
     now = datetime.now(timezone.utc).isoformat()
 
     risk_detail = {s["name"]: s for s in result.signals}
+
+    # Historical-outcome summary: a one-line recap of how past tokens of this
+    # same grade + creator-score bucket turned out. Appended to the rationale
+    # below so the LLM narrative can coexist with the deterministic summary.
+    history_line: str | None = None
+    try:
+        from services.signal_outcomes import get_historical_summary
+        creator_sig = risk_detail.get("creator_history", {}) or {}
+        creator_score = creator_sig.get("score") if isinstance(creator_sig, dict) else None
+        history_line = await get_historical_summary(
+            result.grade, int(creator_score) if creator_score is not None else None
+        )
+    except Exception as e:
+        print(f"[RiskEngine] historical summary failed: {e}")
+
     rationale = result.primary_risk  # fallback
     try:
         from services.llm_service import get_llm_service
@@ -520,6 +535,9 @@ async def score_token(token_address: str, ws_manager=None):
             rationale += f"\n\n[Deep Analysis] {escalation.get('analysis', '')}"
     except Exception as e:
         print(f"[RiskEngine] LLM rationale error: {e}")
+
+    if history_line:
+        rationale = f"{rationale}\n\n{history_line}"
 
     avoided_price = 0.0
     if result.grade == "red":

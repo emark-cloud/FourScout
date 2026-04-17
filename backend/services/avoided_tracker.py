@@ -103,15 +103,17 @@ async def _check_token_price(db, web3, ws_manager, token: dict, now: datetime):
     # Check for confirmed rug
     price_at_flag = token.get("price_at_flag", 0) or 0
     is_rug = False
+    price_change_pct_val = None
 
     if price_at_flag > 0 and current_price > 0:
-        price_change_pct = ((current_price - price_at_flag) / price_at_flag) * 100
+        price_change_pct_val = ((current_price - price_at_flag) / price_at_flag) * 100
         # Confirmed rug: price dropped > 90%
-        if price_change_pct <= -90:
+        if price_change_pct_val <= -90:
             is_rug = True
     elif price_at_flag > 0 and current_price == 0:
         # Price is zero — definitely rugged
         is_rug = True
+        price_change_pct_val = -100.0
 
     # Also check if liquidity was pulled (graduated then emptied)
     liquidity_added = info.get("liquidityAdded", False)
@@ -174,3 +176,18 @@ async def _check_token_price(db, web3, ws_manager, token: dict, now: datetime):
             })
 
             print(f"[AvoidedTracker] Confirmed rug: {token.get('token_name', '')} ({token['token_address'][:10]}...)")
+
+    # When the 24h slot fills, record a signal_outcomes row. Runs regardless
+    # of rug confirmation so we capture "flagged but survived" datapoints too.
+    if slot == "price_24h_later":
+        try:
+            from services.signal_outcomes import record_avoided_24h
+            await record_avoided_24h(
+                token["token_address"],
+                token.get("risk_score", "") or "",
+                price_change_pct_val,
+                is_rug,
+                now.isoformat(),
+            )
+        except Exception as e:
+            print(f"[AvoidedTracker] signal_outcomes write failed: {e}")

@@ -229,16 +229,22 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             # Best-effort — a failure here must not unwind the trade.
             try:
                 cursor = await db.execute(
-                    "SELECT creator_address FROM tokens WHERE address = ?",
+                    "SELECT creator_address, risk_score FROM tokens WHERE address = ?",
                     (token_address,),
                 )
                 row = await cursor.fetchone()
-                creator = (dict(row).get("creator_address") or "") if row else ""
+                row_dict = dict(row) if row else {}
+                creator = row_dict.get("creator_address") or ""
+                entry_grade = row_dict.get("risk_score") or ""
                 if creator:
                     from services.creator_reputation import record_close
                     await record_close(creator, round(pnl, 8))
+                # Signal outcome: compute pnl_pct from entry amount and record.
+                pnl_pct = (pnl / entry_amount * 100) if entry_amount else None
+                from services.signal_outcomes import record_trade_close
+                await record_trade_close(token_address, entry_grade, pnl_pct, now)
             except Exception as e:
-                print(f"[Executor] creator outcome update failed: {e}")
+                print(f"[Executor] outcome update failed: {e}")
 
             # Broadcast trade_executed
             if ws_manager:

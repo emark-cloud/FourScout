@@ -66,7 +66,7 @@ export default function OpportunityDetail() {
     return (
       <div className="text-center py-12">
         <p className="text-[var(--text-secondary)]">Token not found</p>
-        <Link to="/" className="text-[var(--accent-gold)] text-sm">Back to Dashboard</Link>
+        <Link to="/dashboard" className="text-[var(--accent-gold)] text-sm">Back to Dashboard</Link>
       </div>
     )
   }
@@ -81,7 +81,7 @@ export default function OpportunityDetail() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Back link */}
-      <Link to="/" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-4 inline-block no-underline">
+      <Link to="/dashboard" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-4 inline-block no-underline">
         &larr; Back to Dashboard
       </Link>
 

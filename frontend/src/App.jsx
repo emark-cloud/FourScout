@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { wagmiConfig } from './hooks/useWallet'
 import { useWebSocket } from './hooks/useWebSocket'
 import Navbar from './components/Navbar'
+import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import OpportunityDetail from './pages/OpportunityDetail'
 import Positions from './pages/Positions'
@@ -25,7 +26,8 @@ function AppContent() {
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 py-6">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/token/:address" element={<OpportunityDetail />} />
             <Route path="/positions" element={<Positions />} />
             <Route path="/avoided" element={<Avoided />} />

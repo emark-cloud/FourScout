@@ -3,7 +3,7 @@ import { useWallet } from '../hooks/useWallet'
 import NotificationBell from './NotificationBell'
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Dashboard' },
+  { path: '/dashboard', label: 'Dashboard' },
   { path: '/positions', label: 'Positions' },
   { path: '/avoided', label: 'Avoided' },
   { path: '/activity', label: 'Activity' },

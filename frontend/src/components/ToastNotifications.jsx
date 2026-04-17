@@ -24,13 +24,13 @@ const EVENT_CONFIG = {
     type: 'warning',
     title: `${data.action_type === 'buy' ? 'Buy' : 'Sell'} Proposed`,
     message: data.rationale?.slice(0, 80) || tokenLabel(data),
-    to: data.token_address ? `/token/${data.token_address}` : '/',
+    to: data.token_address ? `/token/${data.token_address}` : '/dashboard',
   }),
   risk_alert: (data) => ({
     type: data.new_grade === 'red' ? 'error' : 'warning',
     title: 'Risk Grade Changed',
     message: `${data.token_name || data.address?.slice(0, 10) + '...'} ${data.old_grade?.toUpperCase()} → ${data.new_grade?.toUpperCase()}`,
-    to: data.address ? `/token/${data.address}` : '/',
+    to: data.address ? `/token/${data.address}` : '/dashboard',
   }),
   position_update: (data) => {
     if (!data.pnl_bnb || !data.entry_amount_bnb) return null

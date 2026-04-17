@@ -1,7 +1,9 @@
 """Persona-based action engine — maps risk scores + persona rules to trade actions."""
 
 from dataclasses import dataclass
+
 from database import get_all_config
+from services.override_stats import build_nudge_line, get_recent_pattern
 
 
 @dataclass
@@ -48,7 +50,13 @@ async def decide_action(
     active_positions: int = 0,
     budget_used_today: float = 0.0,
 ) -> TradeAction:
-    """Decide what action the persona should take for a given token."""
+    """Decide what action the persona should take for a given token.
+
+    The deterministic decision is never changed by override history — that
+    stays a pure persona × risk-grade × budget function. We append a single
+    trailing nudge line to the reason text so the user sees their own
+    pattern on the proposal without the engine quietly adjusting.
+    """
     config = await get_all_config()
     persona_name = config.get("persona", "momentum")
     persona = PERSONA_CONFIGS.get(persona_name, PERSONA_CONFIGS["momentum"])
@@ -96,6 +104,24 @@ async def decide_action(
             except (ValueError, TypeError):
                 pass
 
-        return TradeAction("buy", f"{persona_name.capitalize()} recommends entry", amount, max_slippage)
+        reason = f"{persona_name.capitalize()} recommends entry"
+        nudge = await _try_build_nudge(risk_grade)
+        if nudge:
+            reason = f"{reason}. {nudge}"
+        return TradeAction("buy", reason, amount, max_slippage)
 
     return TradeAction("monitor", "Monitoring — conditions not met for entry", recheck_minutes=5)
+
+
+async def _try_build_nudge(risk_grade: str) -> str | None:
+    """Fetch override pattern + render a nudge. Never raises into the caller.
+
+    The nudge is pure observability; a DB hiccup here must not block a
+    proposal from being generated.
+    """
+    try:
+        pattern = await get_recent_pattern(risk_grade)
+    except Exception as e:
+        print(f"[PersonaEngine] override_stats failed: {e}")
+        return None
+    return build_nudge_line(pattern)

@@ -11,9 +11,10 @@ from clients.bsc_web3 import BSCWeb3Client
 
 _cycle_count = 0
 
-# Per-position cooldown: token_address -> (last_ai_check_ts, pnl_pct_at_check).
-# Suppresses LLM exit calls that would just re-confirm unchanged state.
-_last_ai_check: dict[str, tuple[datetime, float]] = {}
+# Per-position cooldown state lives on the positions row itself
+# (last_ai_check_at, last_ai_pnl_pct). A restart used to wipe the in-memory
+# dict and trigger a storm of LLM exit calls on the first cycle; the DB
+# columns make the cooldown survive across restarts.
 _AI_COOLDOWN_MINUTES = 15
 _AI_PNL_DELTA_PCT = 3.0
 
@@ -117,10 +118,13 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
                             or (take_profit_pct * 0.7 <= pnl_pct < take_profit_pct)  # last 30% toward TP
                             or _is_stale_position(pos, now)
                         )
-                        if in_band and _should_call_ai(pos["token_address"], pnl_pct):
+                        if in_band and _should_call_ai(pos, pnl_pct):
                             ai_result = await _ai_analyze_position(pos, pnl_pct, web3)
                             ai_calls_remaining -= 1
-                            _last_ai_check[pos["token_address"]] = (datetime.now(timezone.utc), pnl_pct)
+                            await db.execute(
+                                "UPDATE positions SET last_ai_check_at = ?, last_ai_pnl_pct = ? WHERE id = ?",
+                                (datetime.now(timezone.utc).isoformat(), pnl_pct, pos["id"]),
+                            )
                             if ai_result and ai_result.get("recommendation") == "exit" and ai_result.get("confidence", 0) >= 70:
                                 await _propose_exit(
                                     db, pos, "ai_analysis",
@@ -136,21 +140,28 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
         await db.close()
 
 
-def _should_call_ai(token_address: str, pnl_pct: float) -> bool:
+def _should_call_ai(pos: dict, pnl_pct: float) -> bool:
     """Skip LLM if we checked this position recently AND the PnL hasn't moved.
 
     Drift gating alone isn't enough — a position sitting at -35% with SL=-50
     will keep re-entering the "approaching SL" band every cycle. Without a
     cooldown we pay for the same analysis over and over.
+
+    State comes from the position row (`last_ai_check_at`, `last_ai_pnl_pct`)
+    so the cooldown survives a backend restart.
     """
-    last = _last_ai_check.get(token_address)
-    if not last:
+    last_at = pos.get("last_ai_check_at")
+    last_pnl = pos.get("last_ai_pnl_pct")
+    if not last_at or last_pnl is None:
         return True
-    last_ts, last_pnl = last
+    try:
+        last_ts = datetime.fromisoformat(str(last_at).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return True
     age_min = (datetime.now(timezone.utc) - last_ts).total_seconds() / 60
     if age_min >= _AI_COOLDOWN_MINUTES:
         return True
-    return abs(pnl_pct - last_pnl) >= _AI_PNL_DELTA_PCT
+    return abs(pnl_pct - float(last_pnl)) >= _AI_PNL_DELTA_PCT
 
 
 def _is_stale_position(pos: dict, now_iso: str) -> bool:

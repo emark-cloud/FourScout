@@ -3,6 +3,8 @@
 Uses Google Gemini (free tier). Provider abstraction allows swapping to Anthropic later.
 """
 
+import asyncio
+
 from config import settings
 
 
@@ -66,7 +68,8 @@ Write 2-3 sentences, under 80 words. No disclaimers."""
 
         try:
             from google.genai import types
-            response = self.client.models.generate_content(
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=self.model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -120,7 +123,8 @@ ANALYSIS: [2-3 sentences explaining your reasoning]"""
 
         try:
             from google.genai import types
-            response = self.client.models.generate_content(
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=self.model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -194,7 +198,8 @@ REASONING: [1-2 sentences explaining why, referencing specific signals]"""
 
         try:
             from google.genai import types
-            response = self.client.models.generate_content(
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=self.model,
                 contents=prompt,
                 config=types.GenerateContentConfig(

@@ -4,6 +4,7 @@ Users can ask questions about tokens, compare risks, get explanations.
 The chat is context-aware: pulls token data, positions, persona config into prompts.
 """
 
+import asyncio
 import json
 import time
 from database import get_db, get_all_config
@@ -137,7 +138,8 @@ Guidelines:
 
     try:
         from google.genai import types
-        response = llm.client.models.generate_content(
+        response = await asyncio.to_thread(
+            llm.client.models.generate_content,
             model=llm.model,
             contents=prompt,
             config=types.GenerateContentConfig(

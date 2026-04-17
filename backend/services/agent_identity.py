@@ -1,5 +1,7 @@
 """ERC-8004 Agent Identity — register and verify on-chain agent status."""
 
+import asyncio
+
 from config import settings
 from clients.fourmeme_cli import FourMemeCLI, FourMemeError
 from clients.bsc_web3 import BSCWeb3Client
@@ -45,8 +47,10 @@ async def get_agent_status() -> dict:
         }
 
     web3 = _get_web3()
-    is_registered = web3.is_agent(address)
-    bnb_balance = web3.get_bnb_balance(address)
+    is_registered, bnb_balance = await asyncio.gather(
+        asyncio.to_thread(web3.is_agent, address),
+        asyncio.to_thread(web3.get_bnb_balance, address),
+    )
 
     return {
         "wallet_address": address,
@@ -64,7 +68,7 @@ async def register_agent(name: str, image_url: str | None = None, description: s
 
     # Check if already registered
     web3 = _get_web3()
-    if web3.is_agent(address):
+    if await asyncio.to_thread(web3.is_agent, address):
         return {"success": True, "already_registered": True, "wallet_address": address}
 
     cli = _get_cli()

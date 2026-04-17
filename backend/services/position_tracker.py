@@ -62,7 +62,7 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
 
         for pos in positions:
             try:
-                info = web3.get_token_info(pos["token_address"])
+                info = await asyncio.to_thread(web3.get_token_info, pos["token_address"])
                 if not info:
                     continue
 

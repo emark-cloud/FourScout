@@ -84,7 +84,7 @@ async def _check_token_price(db, web3, ws_manager, token: dict, now: datetime):
         return  # Not time yet for any check
 
     # Get current price from on-chain
-    info = web3.get_token_info(token["token_address"])
+    info = await asyncio.to_thread(web3.get_token_info, token["token_address"])
     if not info:
         return
 

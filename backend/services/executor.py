@@ -1,5 +1,6 @@
 """Trade executor — executes approved actions via Four.meme CLI."""
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from database import get_db
@@ -122,7 +123,7 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             # Use exact on-chain balance to avoid floating-point precision loss
             from clients.bsc_web3 import BSCWeb3Client
             web3_client = BSCWeb3Client()
-            on_chain_balance = web3_client.get_token_balance(token_address)
+            on_chain_balance = await asyncio.to_thread(web3_client.get_token_balance, token_address)
             if on_chain_balance and on_chain_balance > 0:
                 amount_wei = str(on_chain_balance)
                 token_amount = on_chain_balance / 10**18

@@ -5,21 +5,29 @@ import asyncio
 import json
 from datetime import datetime, timezone
 
+from config import settings
 from database import get_db, get_all_config
 from clients.bsc_web3 import BSCWeb3Client
 
 _cycle_count = 0
+
+# Per-position cooldown: token_address -> (last_ai_check_ts, pnl_pct_at_check).
+# Suppresses LLM exit calls that would just re-confirm unchanged state.
+_last_ai_check: dict[str, tuple[datetime, float]] = {}
+_AI_COOLDOWN_MINUTES = 15
+_AI_PNL_DELTA_PCT = 3.0
 
 
 async def start_position_tracker(ws_manager, interval: int = 60):
     """Periodically update active position prices and PnL."""
     global _cycle_count
     web3 = BSCWeb3Client()
+    ai_interval = max(1, settings.ai_exit_interval_cycles)
 
     try:
         while True:
             _cycle_count += 1
-            do_ai = (_cycle_count % 5 == 0)  # AI analysis every 5th cycle (5 min)
+            do_ai = (_cycle_count % ai_interval == 0)
             try:
                 await update_positions(web3, ws_manager, do_ai_analysis=do_ai)
             except Exception as e:
@@ -100,15 +108,19 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
                             ws_manager,
                         )
                     elif do_ai_analysis and ai_calls_remaining > 0:
-                        # AI analysis for positions that haven't hit thresholds
-                        should_analyze = (
-                            (stop_loss_pct * 0.6 <= pnl_pct <= stop_loss_pct * 0.3)  # approaching stop loss
-                            or (take_profit_pct * 0.5 <= pnl_pct < take_profit_pct)  # approaching take profit
-                            or _is_stale_position(pos, now)  # no movement for 30+ min
+                        # AI analysis only when the position is meaningfully close
+                        # to either exit threshold, or has been sitting dormant.
+                        # Tighter bands than before so mid-range positions don't
+                        # burn LLM budget on "still holding" checks.
+                        in_band = (
+                            (stop_loss_pct * 0.7 <= pnl_pct <= stop_loss_pct * 0.4)  # last 30% toward SL
+                            or (take_profit_pct * 0.7 <= pnl_pct < take_profit_pct)  # last 30% toward TP
+                            or _is_stale_position(pos, now)
                         )
-                        if should_analyze:
+                        if in_band and _should_call_ai(pos["token_address"], pnl_pct):
                             ai_result = await _ai_analyze_position(pos, pnl_pct, web3)
                             ai_calls_remaining -= 1
+                            _last_ai_check[pos["token_address"]] = (datetime.now(timezone.utc), pnl_pct)
                             if ai_result and ai_result.get("recommendation") == "exit" and ai_result.get("confidence", 0) >= 70:
                                 await _propose_exit(
                                     db, pos, "ai_analysis",
@@ -122,6 +134,23 @@ async def update_positions(web3: BSCWeb3Client, ws_manager, do_ai_analysis: bool
         await db.commit()
     finally:
         await db.close()
+
+
+def _should_call_ai(token_address: str, pnl_pct: float) -> bool:
+    """Skip LLM if we checked this position recently AND the PnL hasn't moved.
+
+    Drift gating alone isn't enough — a position sitting at -35% with SL=-50
+    will keep re-entering the "approaching SL" band every cycle. Without a
+    cooldown we pay for the same analysis over and over.
+    """
+    last = _last_ai_check.get(token_address)
+    if not last:
+        return True
+    last_ts, last_pnl = last
+    age_min = (datetime.now(timezone.utc) - last_ts).total_seconds() / 60
+    if age_min >= _AI_COOLDOWN_MINUTES:
+        return True
+    return abs(pnl_pct - last_pnl) >= _AI_PNL_DELTA_PCT
 
 
 def _is_stale_position(pos: dict, now_iso: str) -> bool:

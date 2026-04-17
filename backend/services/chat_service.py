@@ -5,6 +5,7 @@ The chat is context-aware: pulls token data, positions, persona config into prom
 """
 
 import json
+import time
 from database import get_db, get_all_config
 from services.llm_service import get_llm_service
 
@@ -13,23 +14,38 @@ from services.llm_service import get_llm_service
 _chat_history: list[dict] = []
 MAX_HISTORY = 20
 
+# TTL cache for the rarely-changing config slice of chat context.
+# Persona and budget caps change on Settings saves, not per-message — refetching
+# every turn is wasted IO and wasted prompt tokens.
+_CONFIG_CTX_TTL_S = 60
+_config_ctx_cache: tuple[float, list[str]] | None = None
+
+
+async def _get_config_ctx_lines() -> list[str]:
+    global _config_ctx_cache
+    now = time.time()
+    if _config_ctx_cache and (now - _config_ctx_cache[0]) < _CONFIG_CTX_TTL_S:
+        return _config_ctx_cache[1]
+    config = await get_all_config()
+    lines = [
+        f"Active persona: {config.get('persona', 'momentum')}",
+        f"Budget: {config.get('max_per_trade_bnb', '0.05')} BNB/trade, {config.get('max_per_day_bnb', '0.3')} BNB/day",
+        f"Max active positions: {config.get('max_active_positions', '3')}",
+    ]
+    _config_ctx_cache = (now, lines)
+    return lines
+
 
 async def _build_context(token_address: str | None = None) -> str:
     """Build context string with relevant data for the AI advisor."""
-    parts = []
-
-    # Persona and config
-    config = await get_all_config()
-    persona = config.get("persona", "momentum")
-    parts.append(f"Active persona: {persona}")
-    parts.append(f"Budget: {config.get('max_per_trade_bnb', '0.05')} BNB/trade, {config.get('max_per_day_bnb', '0.3')} BNB/day")
+    parts = list(await _get_config_ctx_lines())
 
     db = await get_db()
     try:
-        # Active positions summary
+        # Active positions summary (always fresh — changes on trades)
         cursor = await db.execute("SELECT COUNT(*) as cnt FROM positions WHERE status = 'active'")
         pos_count = (await cursor.fetchone())["cnt"]
-        parts.append(f"Active positions: {pos_count}/{config.get('max_active_positions', '3')}")
+        parts.append(f"Active positions now: {pos_count}")
 
         # If asking about a specific token, include its data
         if token_address:
@@ -95,7 +111,7 @@ async def chat(message: str, token_address: str | None = None) -> str:
     # Build conversation with history
     history_text = ""
     if _chat_history:
-        recent = _chat_history[-10:]  # last 10 messages
+        recent = _chat_history[-6:]  # last 6 messages (3 turns)
         history_text = "\n".join(
             f"{'User' if m['role'] == 'user' else 'Advisor'}: {m['content']}"
             for m in recent

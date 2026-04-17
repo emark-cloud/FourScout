@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Four.meme API
     fourmeme_api_base: str = Field(default="https://four.meme/meme-api/v1")
 
+    # LLM cost controls
+    ai_exit_interval_cycles: int = Field(default=10)
+
     model_config = {"env_file": [".env", "../.env"], "env_file_encoding": "utf-8"}
 
 

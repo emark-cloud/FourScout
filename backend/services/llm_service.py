@@ -71,7 +71,7 @@ Write 2-3 sentences, under 80 words. No disclaimers."""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=512,
+                    max_output_tokens=200,
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
@@ -125,7 +125,7 @@ ANALYSIS: [2-3 sentences explaining your reasoning]"""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=512,
+                    max_output_tokens=256,
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
@@ -199,7 +199,7 @@ REASONING: [1-2 sentences explaining why, referencing specific signals]"""
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=512,
+                    max_output_tokens=200,
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
@@ -227,34 +227,6 @@ REASONING: [1-2 sentences explaining why, referencing specific signals]"""
         except Exception as e:
             print(f"[LLM] Position analysis error: {e}")
             return {"recommendation": "hold", "confidence": 0, "reasoning": f"Analysis failed: {e}"}
-
-    async def classify_description(self, description: str) -> str:
-        """Classify a token description as legit/scam/hype."""
-        if not self.client or not description:
-            return "unknown"
-
-        prompt = f"""Classify this memecoin description into one category: legit, scam, or hype.
-Only respond with one word.
-
-Description: {description[:500]}"""
-
-        try:
-            from google.genai import types
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=10,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
-            result = response.text.strip().lower()
-            if result in ("legit", "scam", "hype"):
-                return result
-            return "unknown"
-        except Exception:
-            return "unknown"
 
     def _fallback_rationale(self, risk_signals: dict) -> str:
         """Generate a basic rationale without LLM."""

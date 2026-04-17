@@ -5,8 +5,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Set
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from config import settings
 from database import init_db
@@ -87,14 +88,35 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS - allow frontend dev server
+# CORS — reads ALLOWED_ORIGINS from .env (comma-separated).
+# Defaults keep localhost dev working without config.
+_origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Shared-secret auth. If API_KEY is set, every /api/* request (except /api/health)
+# must present a matching X-API-Key header. Empty key = auth disabled (local dev).
+_AUTH_EXEMPT = {"/api/health"}
+
+
+@app.middleware("http")
+async def api_key_auth(request: Request, call_next):
+    if not settings.api_key:
+        return await call_next(request)
+    path = request.url.path
+    if not path.startswith("/api/") or path in _AUTH_EXEMPT:
+        return await call_next(request)
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    if request.headers.get("x-api-key") != settings.api_key:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return await call_next(request)
 
 # Register routes
 from routes.tokens import router as tokens_router
@@ -120,6 +142,11 @@ app.include_router(agent_router, prefix="/api")
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    # Same shared secret as /api/*, passed as ?key=... (WebSocket can't send
+    # custom headers from the browser). Empty api_key = auth disabled.
+    if settings.api_key and websocket.query_params.get("key") != settings.api_key:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     await ws_manager.connect(websocket)
     try:
         while True:

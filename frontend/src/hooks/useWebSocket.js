@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { getApiKey } from '../services/api'
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+// Browsers can't attach custom headers to WebSocket — pass the shared secret as ?key=.
+const _apiKey = getApiKey()
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws${_apiKey ? `?key=${encodeURIComponent(_apiKey)}` : ''}`
 
 export function useWebSocket() {
   const [messages, setMessages] = useState([])

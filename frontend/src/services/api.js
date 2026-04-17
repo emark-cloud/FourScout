@@ -4,17 +4,21 @@
 
 const BASE_URL = '/api'
 
+// Shared-secret auth. Empty = backend has auth disabled (local dev).
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  })
+  const headers = { 'Content-Type': 'application/json', ...options.headers }
+  if (API_KEY) headers['X-API-Key'] = API_KEY
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`API error ${res.status}: ${text}`)
   }
   return res.json()
 }
+
+export const getApiKey = () => API_KEY
 
 // Tokens
 export const getTokens = (params = {}) => {

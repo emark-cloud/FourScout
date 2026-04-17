@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # LLM cost controls
     ai_exit_interval_cycles: int = Field(default=10)
 
+    # Deployment: auth + CORS. Comma-separated list of allowed origins.
+    # Empty api_key disables auth (single-tenant local dev).
+    allowed_origins: str = Field(default="http://localhost:5173,http://localhost:3000")
+    api_key: str = Field(default="")
+
     model_config = {"env_file": [".env", "../.env"], "env_file_encoding": "utf-8"}
 
 

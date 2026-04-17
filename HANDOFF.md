@@ -75,7 +75,8 @@ meme-guard/
 │   │   ├── approval_gate.py     # 4 approval modes (approve_each, per_session, budget_threshold, monitor_only)
 │   │   ├── position_tracker.py  # PnL tracking + per-position AI cooldown + auto-sell
 │   │   ├── avoided_tracker.py   # "What I Avoided" background checker (live — 39+ flagged)
-│   │   └── agent_identity.py    # ERC-8004 registration (live)
+│   │   ├── agent_identity.py    # ERC-8004 registration (live)
+│   │   └── override_stats.py    # (Phase 3.5 — planned) override + outcome aggregates for persona nudge
 │   ├── routes/
 │   │   ├── tokens.py            # GET /api/tokens, GET /api/tokens/:address
 │   │   ├── actions.py           # GET /api/actions/pending, POST /api/actions/approve, POST /api/actions/reject
@@ -182,6 +183,12 @@ meme-guard/
 - [ ] Live-LLM verification of cost-reduction changes (blocked on refreshed Gemini key — 4 checks: chat reply path, output-token caps not truncated, `_should_call_ai` cooldown suppression, `AI_EXIT_INTERVAL_CYCLES` cadence). **Blocks deploy + demo.**
 - [ ] Deployment (Docker artifacts added; Vercel + Railway/Render still to provision)
 - [ ] Demo video + DoraHacks BUIDL submission
+
+**Phase 3.5 — Agent Memory & Continuity (NOT STARTED):**
+Motivated by the Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop. Full design in `.claude/plans/tidy-mixing-marble.md`. Six work items across three layers:
+- **Persistent interaction memory:** `chat_messages` table (per-token scoped, survives restart); `pending_actions.rejection_reason` column captures *why* users reject
+- **Closed feedback loops:** override-aware nudge in persona-engine rationale (via new `services/override_stats.py`); persist AI exit-check cooldown to `positions.last_ai_check_at` + `last_ai_pnl_pct`
+- **Learning loops:** `creator_reputation` cache table with outcome feedback on close + rug confirmation; `signal_outcomes` tracker paired with backfill migration so the LLM rationale can cite historical accuracy on every scan
 
 **Phase 4 — Non-Custodial Session Keys (roadmap only, not started):**
 - Design documented in `FourScout.md` §18. Stack: ZeroDev Kernel v3 + `@zerodev/permissions` + Pimlico on BSC. Introduces a Node.js `session-signer/` sidecar alongside `fourmeme-cli/`. Backend would swap CLI-subprocess signing for bundler userOps while keeping read-only CLI commands unchanged. All persona rules, approval modes, and budget caps preserved — session keys are a signing mechanism swap, not a policy rewrite.

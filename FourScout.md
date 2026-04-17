@@ -256,6 +256,26 @@ Real-time visual alerts for important events, powered by the existing WebSocket 
 - Max 5 visible toasts, click to dismiss early
 - Binance-themed color coding matching the dark UI
 
+### P. Stateful Memory & Learning Loops
+
+**Targets: Innovation criterion (30% of expert score) + Practical Value (20%)**
+
+Four.meme team AMA (April 2026) identified state and continuity — not raw model intelligence — as the real bottleneck for today's AI agents. FourScout closes the `input → reason → act → memory update` loop at three levels:
+
+- **Persistent interaction memory:**
+  - `chat_messages` table persists every advisor conversation to SQLite, scoped per `token_address`. A conversation about token X on OpportunityDetail survives backend restarts and is not polluted by an unrelated global dashboard chat.
+  - `pending_actions.rejection_reason` captures *why* the user rejected a proposal. The Behavioral Nudge card surfaces the top 3 rejection reasons over the last 7 days — the agent visibly listens.
+
+- **Closed feedback loops:**
+  - **Override-aware rationale:** before `persona_engine.decide_action` returns a proposal, a small aggregate over `overrides` + `positions` attaches a one-line nudge to the rationale (e.g. *"You've approved 4 RED tokens in the last 7 days; 3 closed at >50% loss"*). Pure observability — the deterministic core stays deterministic per the team's "keep core logic controllable" advice.
+  - **AI exit-check cooldown persistence:** `positions.last_ai_check_at` + `last_ai_pnl_pct` replace the in-memory `_last_ai_check` dict, so the 15-min / 3% cooldown survives backend restart. No more restart-storm of LLM calls on the first cycle.
+
+- **Learning loops (improves over time):**
+  - **Creator reputation cache:** `creator_reputation` table caches the ~50k-block BSC query with a 1-hour TTL. On position close, `executor.py` increments `profitable_closes` or `losing_closes`. On avoided-token 24h rug confirmation, `avoided_tracker.py` increments `confirmed_rugs`. The creator-history signal now folds these counters into the score — a creator with many rugs scores worse than one with one rug. Same wallet, scanned again tomorrow, gets a more informed judgment.
+  - **Signal accuracy tracker:** `signal_outcomes` table records every entry-signal pattern paired with its outcome (`trade_closed` with PnL%, or `avoided_24h` with price change and rug flag). On each new scan, an aggregate query reports *"Historical: 3 of your 4 AMBER tokens with creator-score ≤3 closed at >50% loss"* — fed into both the LLM rationale prompt and the deterministic fallback line. A backfill migration at startup retroactively populates from existing closed positions + 24h-resolved avoided tokens, so the demo doesn't need 30 days of runtime to be compelling.
+
+The agent does not self-modify weights — the AMA explicitly warned against over-optimizing complex logic. Instead, memory surfaces observable signals to the user and to the LLM rationale, and closes the caching loop so the deterministic scoring engine's inputs become a function of past outcomes, not a stateless fresh read every scan.
+
 ---
 
 ## 5. Non-Goals (v1)
@@ -655,6 +675,50 @@ CREATE TABLE pending_actions (
     resolved_at TEXT
 );
 
+-- Phase 3.5 memory tables
+
+-- Persistent chat history (scoped per-token, NULL = global dashboard chat)
+CREATE TABLE chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_address TEXT,         -- NULLABLE: NULL = global chat
+    role TEXT,                  -- user / assistant
+    content TEXT,
+    created_at TEXT
+);
+
+-- Creator reputation cache with outcome feedback
+CREATE TABLE creator_reputation (
+    creator_address TEXT PRIMARY KEY,
+    launch_count INTEGER DEFAULT 0,
+    avg_24h_outcome_pct REAL,
+    confirmed_rugs INTEGER DEFAULT 0,
+    profitable_closes INTEGER DEFAULT 0,
+    losing_closes INTEGER DEFAULT 0,
+    last_updated TEXT
+);
+
+-- Signal accuracy tracker (paired entry signals + outcome)
+CREATE TABLE signal_outcomes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_address TEXT,
+    entry_risk_grade TEXT,                -- GREEN / AMBER / RED at entry
+    entry_risk_percentage REAL,
+    creator_score INTEGER,                 -- 0-10 at entry (signal 1)
+    concentration_score INTEGER,           -- 0-10 at entry (signal 2)
+    velocity_score INTEGER,                -- 0-10 at entry (signal 3)
+    liquidity_score INTEGER,               -- 0-10 at entry (signal 4)
+    outcome_type TEXT,                    -- trade_closed / avoided_24h
+    outcome_pnl_pct REAL,                  -- filled for trade_closed
+    outcome_price_change_pct REAL,         -- filled for avoided_24h
+    outcome_confirmed_rug INTEGER,         -- filled for avoided_24h
+    recorded_at TEXT
+);
+
+-- Additions to existing tables (ALTER TABLE migrations on startup):
+--   pending_actions: ADD COLUMN rejection_reason TEXT
+--   positions:       ADD COLUMN last_ai_check_at TEXT
+--   positions:       ADD COLUMN last_ai_pnl_pct REAL
+
 -- Indexes
 CREATE INDEX idx_tokens_creator ON tokens (creator_address);
 CREATE INDEX idx_tokens_risk ON tokens (risk_score);
@@ -663,6 +727,8 @@ CREATE INDEX idx_positions_status ON positions (status);
 CREATE INDEX idx_avoided_flagged ON avoided (flagged_at);
 CREATE INDEX idx_activity_type ON activity (event_type);
 CREATE INDEX idx_activity_token ON activity (token_address);
+CREATE INDEX idx_chat_messages_token ON chat_messages (token_address, id);
+CREATE INDEX idx_signal_outcomes_grade ON signal_outcomes (entry_risk_grade, recorded_at);
 ```
 
 ---
@@ -781,6 +847,25 @@ CREATE INDEX idx_activity_token ON activity (token_address);
 - [ ] Demo video recording (3-5 min, see demo script below)
 - [ ] DoraHacks BUIDL submission (GitHub repo + demo video link)
 
+### Phase 3.5 — Agent Memory & Continuity (NOT STARTED)
+
+**Goal:** Close the memory loops so FourScout remembers past interactions, maintains state across restarts, and has its judgment improve as trades close. Full design in `.claude/plans/tidy-mixing-marble.md`. Motivated by Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop.
+
+#### Persistent interaction memory
+- [ ] `chat_messages` table — replace in-memory `_chat_history` with DB-backed, per-token-scoped chat history
+- [ ] `pending_actions.rejection_reason` column — capture *why* users reject; surface top 3 reasons on Behavioral Nudge card
+
+#### Closed feedback loops
+- [ ] Override-aware nudge via new `backend/services/override_stats.py` helper — append past-behavior summary to persona-engine rationale without changing decisions
+- [ ] Persist AI exit-check cooldown to `positions.last_ai_check_at` + `last_ai_pnl_pct` — fix restart-storm of LLM calls
+
+#### Learning loops (improves over time)
+- [ ] `creator_reputation` table — cache creator-history BSC query (1h TTL), update on position close + avoided rug confirmation, fold counters back into creator signal score
+- [ ] `signal_outcomes` table — pair entry signal pattern with outcome (trade PnL% or avoided 24h price change). Feed aggregate into LLM rationale + deterministic fallback. Backfill on startup from existing closed positions + 24h-resolved avoided rows.
+
+#### Out of scope
+- Semantic/vector chat memory, RL-style policy updates, populating dormant `token_snapshots` table, cross-session user profile learning, active agent-to-agent coordination (ERC-8004 discovery is enough for MVP)
+
 ---
 
 ## 12. Demo Script (3–4 minutes)
@@ -815,7 +900,7 @@ Projects are evaluated through **expert review (70%)** and **community voting (3
 
 | Judging Criterion | Weight | How FourScout Delivers |
 |-------------------|--------|----------------------|
-| **Innovation** (originality + depth of AI) | 30% of expert | Interactive AI advisor (conversational, not just labels). Multi-signal narrative synthesis (pattern detection across 8 signals). Escalation pipeline (deterministic core + deep AI for uncertain cases). ERC-8004 on-chain agent identity. |
+| **Innovation** (originality + depth of AI) | 30% of expert | Interactive AI advisor (conversational, not just labels). Multi-signal narrative synthesis (pattern detection across 8 signals). Escalation pipeline (deterministic core + deep AI for uncertain cases). ERC-8004 on-chain agent identity. Stateful memory loops (persistent chat, creator reputation cache, signal accuracy tracker) so the agent's judgment improves as trades close. |
 | **Technical Implementation** (code quality + demo stability) | 30% of expert | Complete end-to-end pipeline: discover → score → propose → approve → execute → track. 8-signal deterministic risk engine. 4 approval modes. Budget-capped autonomy. Hybrid integration (CLI + Web3.py + REST API). |
 | **Practical Value** (user impact + commercial potential) | 20% of expert | "What I Avoided" — concrete savings visualization. Position lifecycle management. Budget enforcement. Persona presets for different risk profiles. Solves real information asymmetry on Four.meme. |
 | **Presentation** (pitch clarity + execution capability) | 20% of expert | Risk radar chart visualization. Real-time WebSocket dashboard. Dark Binance-inspired theme. Demo video with scripted narrative arc. |
@@ -865,7 +950,8 @@ meme-guard/
 │   │   ├── risk_engine.py         # All 8 deterministic signals, weighted aggregation → GREEN/AMBER/RED
 │   │   ├── persona_engine.py      # 3 persona configs → decide_action() → buy/skip/monitor/exit
 │   │   ├── llm_service.py         # Google Gemini provider (google-genai SDK), fallback rationale
-│   │   ├── chat_service.py        # Interactive AI advisor: context-aware conversational chat
+│   │   ├── chat_service.py        # Interactive AI advisor (DB-backed chat history, per-token scoped — Phase 3.5)
+│   │   ├── override_stats.py      # (Phase 3.5) Aggregates over overrides + positions for persona-engine nudge
 │   │   ├── tx_builder.py          # prepare_buy/sell via CLI quote → TxPreview
 │   │   ├── executor.py            # execute_approved_action() via Four.meme CLI, record trades/positions
 │   │   ├── approval_gate.py       # 4 approval modes: approve_each, per_session, budget_threshold, monitor

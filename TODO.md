@@ -112,7 +112,41 @@
 - [x] **Playwright UI pass:** dashboard feed, token detail radar + 8 signals + AMBER deep-analysis narrative, avoided stats, settings (8004 card, persona, approval, exit strategy, budget, watchlist), AI chat panel (graceful Gemini-503 fallback) — all render correctly
 - [x] **Fixed during verification:** event-loop blocking on sync Web3 calls (commit `3476eb4`); SQLite `database is locked` under concurrent scoring + ghost-token AMBER mis-grading (commit `295bd0f`) — avoided tracker now auto-populates (39+ tokens flagged live)
 - [x] **Wallet-gated demo flow:** 8004 register tx (agent wallet `0xECf5…Bb25` registered on BSC mainnet) + trade approve-sign (position_id 4, 13,069 ORDI, entry 0.0001 BNB, tx `0x8a9e876852b6368fbc1a0bb027eddf1b2043f9882af469653112314c2771dbdb`)
+- [ ] **LLM cost-reduction verification (needs refreshed Gemini key — BLOCKS deploy + demo recording):** after topping up credits, confirm (1) `/api/chat` returns a normal reply with the trimmed 6-turn history + 60s config cache; (2) rationale, AMBER deep analysis, and position-exit responses still complete cleanly at the reduced `max_output_tokens` (200/256/200) without mid-sentence truncation; (3) tail backend log with an active position drifting inside the tightened AI band — expect `_should_call_ai` to suppress repeat calls for 15 min / <3% PnL delta; (4) exit-AI cadence honors `AI_EXIT_INTERVAL_CYCLES` (10-cycle default). Commit `f4523b4`.
 - [ ] **Community voting appeal:** deployed, polished, screenshot-worthy
+
+## Phase 3.5: Agent Memory & Continuity
+**Goal:** Close the memory loops so FourScout remembers past interactions, maintains state across restarts, and has its judgment improve as trades close. Aligned with Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop. Full design in `.claude/plans/tidy-mixing-marble.md`.
+
+### Persistent interaction memory
+- [ ] **Persistent chat memory** — new `chat_messages` table `(id, token_address NULLABLE, role, content, created_at)` with index on `(token_address, id)`. Replace `_chat_history` module global in `chat_service.py` with DB reads/writes. Scope by `token_address` so OpportunityDetail chats are per-token and the Dashboard chat is global. Verification: send 3 chats, restart backend, confirm history survives and per-token scoping holds.
+- [ ] **Rejection reason capture** — add `rejection_reason TEXT` to `pending_actions`. `POST /api/actions/reject` accepts optional `{ reason }`. Frontend reject modal gets an optional textarea (500 char max). Surface top 3 rejection reasons (last 7d) on the Behavioral Nudge card.
+
+### Closed feedback loops
+- [ ] **Override-aware nudge in rationale** — new helper `backend/services/override_stats.py` with SQL aggregates over `overrides` + `positions`. `persona_engine.decide_action` appends a one-line nudge to the proposal's rationale: *"You've approved 4 RED tokens in the last 7 days; 3 closed at >50% loss."* Pure observability — does not change the decision (keeps the deterministic core per AMA guidance on controllable logic).
+- [ ] **Persist AI exit-check cooldown across restarts** — add `last_ai_check_at TEXT` and `last_ai_pnl_pct REAL` columns to `positions`. `position_tracker._should_call_ai` reads/writes these columns on the position row; drop the in-memory `_last_ai_check` dict. Fixes the restart-storm where every position triggers a fresh LLM call on the first cycle after a restart.
+
+### Learning loops (demo-visible "improves over time")
+- [ ] **Creator reputation cache with outcome feedback** — new `creator_reputation` table `(creator_address PK, launch_count, avg_24h_outcome_pct, confirmed_rugs, profitable_closes, losing_closes, last_updated)`. `risk_engine.score_creator_history` checks cache first (1-hour TTL); only recomputes from chain on miss. `executor.py` updates `profitable_closes`/`losing_closes` on position close. `avoided_tracker.py` updates `confirmed_rugs` on 24h rug confirmation. Signal scoring folds these counters into the creator score so a creator with many rugs scores worse than one with one rug. Kills the ~50k-block BSC query on every scan for known creators.
+- [ ] **Signal accuracy tracker** — new `signal_outcomes` table capturing entry signal pattern + outcome (`trade_closed` with PnL% or `avoided_24h` with price change & rug flag). Writes from `executor.close_position` and `avoided_tracker` 24h resolution. `risk_engine.score_token` runs one aggregate on each scan and feeds *"Historical: 3 of your 4 AMBER tokens with creator-score ≤3 closed at >50% loss"* into the LLM rationale prompt (and into the deterministic fallback so demo still works without Gemini credits). Include a backfill migration on startup that populates retroactively from existing closed positions + 24h-resolved avoided tokens, so demo-day doesn't need 30 days of operation to be interesting.
+
+### Verify Phase 3.5
+- [ ] Chat persistence survives restart; per-token scoping holds
+- [ ] Rejection reason is persisted and surfaces on Behavioral Nudge card
+- [ ] Override-aware nudge appears in proposal rationale after 3+ overrides recorded
+- [ ] Restarting backend mid-position does NOT trigger a fresh AI exit check within the cooldown window
+- [ ] Second scan of same creator within 1h logs a cache hit (no BSC query)
+- [ ] Closing a losing position increments `creator_reputation.losing_closes` and worsens that creator's score on the next scan
+- [ ] LLM rationale prompts log shows the historical-outcome line being interpolated
+- [ ] Backfill populates `signal_outcomes` on a fresh clone from existing closed positions + 24h-resolved avoided rows
+- [ ] No regressions: risk engine scoring latency unchanged or faster; existing deterministic TP/SL unchanged; no increase in LLM call counts
+
+### Out of scope (deliberate)
+- Semantic/vector chat memory (linear last-N per token is sufficient for trading-decision chat)
+- RL-style policy updates (AMA advised against complex strategy optimization)
+- Populating the dormant `token_snapshots` table (velocity signal already works; orthogonal to the memory theme)
+- Cross-session user profile learning (post-hackathon direction)
+- Agent-to-agent coordination (ERC-8004 registration makes FourScout discoverable; active coordination is a Phase 4+ direction)
 
 ## Phase 4: Non-Custodial Session Keys (Roadmap — post-hackathon)
 **Goal:** Evolve from single-tenant self-hosted (one `PRIVATE_KEY` per deployment) to hosted multi-tenant with cryptographically bounded delegation. Design documented in `FourScout.md` §18.

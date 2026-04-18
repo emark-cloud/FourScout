@@ -229,6 +229,7 @@ _COLUMN_MIGRATIONS = [
 DEFAULT_CONFIG = {
     "persona": "momentum",
     "approval_mode": "approve_each",
+    "min_per_trade_bnb": "0.002",
     "max_per_trade_bnb": "0.05",
     "max_per_day_bnb": "0.3",
     "max_active_positions": "3",

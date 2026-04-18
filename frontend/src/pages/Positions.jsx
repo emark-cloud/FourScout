@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getPositions, approveAction, rejectAction, sellPosition } from '../services/api'
+import { getPositions, approveAction, rejectAction, sellPosition, abandonPosition } from '../services/api'
 
 export default function Positions() {
   const [positions, setPositions] = useState([])
@@ -62,6 +62,22 @@ export default function Positions() {
     } catch (e) {
       console.error('Manual sell error:', e)
       window.alert(`Sell failed: ${e.message || e}`)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleAbandon = async (pos) => {
+    const label = pos.token_name || pos.token_symbol || pos.token_address.slice(0, 10) + '...'
+    if (!window.confirm(`Abandon ${label}? The position will be marked closed without an on-chain sell. Use this only when the position is too small to cover Four.meme's minimum fee.`)) return
+    const key = `abandon-${pos.id}`
+    setActionLoading(key)
+    try {
+      await abandonPosition(pos.id)
+      await loadPositions()
+    } catch (e) {
+      console.error('Abandon error:', e)
+      window.alert(`Abandon failed: ${e.message || e}`)
     } finally {
       setActionLoading(null)
     }
@@ -143,13 +159,23 @@ export default function Positions() {
                     </td>
                     <td className="text-right px-4 py-3">
                       {pos.status === 'active' && !pos.pending_sell && (
-                        <button
-                          onClick={() => handleManualSell(pos)}
-                          disabled={actionLoading === `manual-${pos.id}`}
-                          className="px-3 py-1 bg-[#F6465D] text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 disabled:opacity-50"
-                        >
-                          {actionLoading === `manual-${pos.id}` ? 'Selling...' : 'Sell'}
-                        </button>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleManualSell(pos)}
+                            disabled={actionLoading === `manual-${pos.id}` || actionLoading === `abandon-${pos.id}`}
+                            className="px-3 py-1 bg-[#F6465D] text-white text-xs font-semibold rounded cursor-pointer hover:opacity-90 disabled:opacity-50"
+                          >
+                            {actionLoading === `manual-${pos.id}` ? 'Selling...' : 'Sell'}
+                          </button>
+                          <button
+                            onClick={() => handleAbandon(pos)}
+                            disabled={actionLoading === `manual-${pos.id}` || actionLoading === `abandon-${pos.id}`}
+                            title="Mark position closed without on-chain sell (for dust positions below Four.meme's min fee)"
+                            className="px-3 py-1 bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-xs rounded cursor-pointer border border-[var(--border)] hover:text-[var(--text-primary)] disabled:opacity-50"
+                          >
+                            {actionLoading === `abandon-${pos.id}` ? '...' : 'Abandon'}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

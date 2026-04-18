@@ -50,6 +50,9 @@ export const getPositions = (status = 'active') =>
 export const sellPosition = (positionId) =>
   request(`/positions/${positionId}/sell`, { method: 'POST' })
 
+export const abandonPosition = (positionId) =>
+  request(`/positions/${positionId}/abandon`, { method: 'POST' })
+
 // Activity
 export const getActivity = (limit = 50) => request(`/activity?limit=${limit}`)
 

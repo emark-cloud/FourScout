@@ -147,6 +147,52 @@ async def manual_sell(position_id: int):
     return {"status": "executed", "action_id": action_id, "result": result}
 
 
+@router.post("/positions/{position_id}/abandon")
+async def abandon_position(position_id: int):
+    """Close a dust position without an on-chain sell.
+
+    Four.meme enforces a 0.001 BNB minimum fee per sell, so tiny positions
+    (< ~0.002 BNB entry) revert on sellToken because the fee exceeds
+    proceeds. This endpoint lets the user write off the position so the
+    Positions page stops surfacing a button that can never succeed.
+    """
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM positions WHERE id = ? AND status = 'active'",
+            (position_id,),
+        )
+        position = await cursor.fetchone()
+        if not position:
+            return JSONResponse(
+                content={"error": "Position not found or not active"},
+                status_code=404,
+            )
+        pos = dict(position)
+        entry = float(pos.get("entry_amount_bnb") or 0)
+        now = datetime.now(timezone.utc).isoformat()
+
+        await db.execute(
+            """UPDATE positions SET status = 'closed', exit_price = 0,
+               exit_amount_bnb = 0, pnl_bnb = ?, closed_at = ? WHERE id = ?""",
+            (round(-entry, 8), now, position_id),
+        )
+        await db.execute(
+            "INSERT INTO activity (event_type, token_address, detail, created_at) VALUES (?, ?, ?, ?)",
+            (
+                "position_abandoned",
+                pos["token_address"],
+                json.dumps({"position_id": position_id, "written_off_bnb": entry}),
+                now,
+            ),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    return {"status": "abandoned", "position_id": position_id, "written_off_bnb": entry}
+
+
 @router.get("/trades/daily")
 async def daily_trade_stats():
     """Get today's trade count and total BNB spent."""

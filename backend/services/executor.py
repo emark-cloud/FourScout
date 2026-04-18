@@ -29,8 +29,17 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             # other trades filled can push the day over cap; trust only the DB.
             from database import get_all_config
             cfg = await get_all_config()
+            min_per_trade = float(cfg.get("min_per_trade_bnb", 0.002))
             max_per_trade = float(cfg.get("max_per_trade_bnb", 0.05))
             max_per_day = float(cfg.get("max_per_day_bnb", 0.3))
+            # Four.meme charges min 0.001 BNB fee per sell — if a buy is too
+            # small, the sell will revert with "Gw" because the fee exceeds
+            # proceeds. Floor the buy so round-trip is always viable.
+            if amount_bnb < min_per_trade:
+                return {
+                    "status": "rejected",
+                    "message": f"amount {amount_bnb} BNB below min_per_trade ({min_per_trade}); sell would be blocked by Four.meme min fee",
+                }
             if amount_bnb > max_per_trade:
                 return {
                     "status": "rejected",

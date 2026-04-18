@@ -23,9 +23,10 @@ async def get_config():
 async def update_config(update: ConfigUpdate):
     """Update a configuration value."""
     valid_keys = {
-        "persona", "approval_mode", "max_per_trade_bnb", "max_per_day_bnb",
-        "max_active_positions", "max_slippage_pct", "cooldown_seconds",
-        "min_liquidity_usd", "take_profit_pct", "stop_loss_pct", "auto_sell_enabled",
+        "persona", "approval_mode", "min_per_trade_bnb", "max_per_trade_bnb",
+        "max_per_day_bnb", "max_active_positions", "max_slippage_pct",
+        "cooldown_seconds", "min_liquidity_usd", "take_profit_pct",
+        "stop_loss_pct", "auto_sell_enabled",
     }
     if update.key not in valid_keys:
         return JSONResponse(content={"error": f"Invalid config key. Valid keys: {sorted(valid_keys)}"}, status_code=400)
@@ -38,9 +39,10 @@ async def update_config(update: ConfigUpdate):
 async def update_config_bulk(updates: dict):
     """Update multiple configuration values at once."""
     valid_keys = {
-        "persona", "approval_mode", "max_per_trade_bnb", "max_per_day_bnb",
-        "max_active_positions", "max_slippage_pct", "cooldown_seconds",
-        "min_liquidity_usd", "take_profit_pct", "stop_loss_pct", "auto_sell_enabled",
+        "persona", "approval_mode", "min_per_trade_bnb", "max_per_trade_bnb",
+        "max_per_day_bnb", "max_active_positions", "max_slippage_pct",
+        "cooldown_seconds", "min_liquidity_usd", "take_profit_pct",
+        "stop_loss_pct", "auto_sell_enabled",
     }
     invalid = [k for k in updates if k not in valid_keys]
     if invalid:

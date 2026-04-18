@@ -372,6 +372,19 @@ async def init_db():
         await db.commit()
 
 
+async def prune_old_avoided(days: int = 7) -> int:
+    """Delete avoided rows older than N days. Signal outcomes are kept permanently
+    in the signal_outcomes table, so pruning here doesn't lose learning data.
+    Returns the number of rows deleted."""
+    async with aiosqlite.connect(get_db_path()) as db:
+        cursor = await db.execute(
+            f"DELETE FROM avoided WHERE flagged_at < datetime('now', '-{int(days)} days')"
+        )
+        deleted = cursor.rowcount or 0
+        await db.commit()
+        return deleted
+
+
 async def get_db() -> aiosqlite.Connection:
     """Get a database connection with WAL mode and busy timeout."""
     db = await aiosqlite.connect(get_db_path())

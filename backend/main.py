@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
-from database import init_db
+from database import init_db, prune_old_avoided
 
 
 # WebSocket connection manager
@@ -49,6 +49,10 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_db()
     print("Database initialized.")
+
+    pruned = await prune_old_avoided(days=7)
+    if pruned:
+        print(f"Pruned {pruned} avoided rows older than 7 days.")
 
     # Start scanner in background
     from services.scanner import start_scanner

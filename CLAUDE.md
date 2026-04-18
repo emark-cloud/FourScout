@@ -151,7 +151,10 @@ meme-guard/
 │   │   ├── approval_gate.py # 4 approval modes
 │   │   ├── position_tracker.py  # PnL tracking + AI exit analysis + auto-sell
 │   │   ├── avoided_tracker.py   # "What I Avoided" background checker
-│   │   └── agent_identity.py    # ERC-8004 registration
+│   │   ├── agent_identity.py    # ERC-8004 registration
+│   │   ├── override_stats.py    # Override pattern aggregates → persona nudge (Phase 3.5)
+│   │   ├── creator_reputation.py # Cached creator score w/ outcome feedback (Phase 3.5)
+│   │   └── signal_outcomes.py   # Signal accuracy tracker + historical summary (Phase 3.5)
 │   ├── models/              # Pydantic models / dataclasses
 │   ├── routes/              # FastAPI route modules (tokens, actions, positions, avoided, config, watchlist, activity, chat)
 │   ├── abis/                # Contract ABIs (JSON)

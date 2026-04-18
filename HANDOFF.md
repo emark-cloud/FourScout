@@ -1,6 +1,6 @@
 # FourScout — Project Handoff Document
 
-> Last updated: 2026-04-17
+> Last updated: 2026-04-18
 > Purpose: Everything a new Claude instance needs to continue building this project.
 
 ---
@@ -76,7 +76,9 @@ meme-guard/
 │   │   ├── position_tracker.py  # PnL tracking + per-position AI cooldown + auto-sell
 │   │   ├── avoided_tracker.py   # "What I Avoided" background checker (live — 39+ flagged)
 │   │   ├── agent_identity.py    # ERC-8004 registration (live)
-│   │   └── override_stats.py    # (Phase 3.5 — planned) override + outcome aggregates for persona nudge
+│   │   ├── override_stats.py    # Phase 3.5 — override pattern aggregates → persona nudge line
+│   │   ├── creator_reputation.py # Phase 3.5 — cached creator score with outcome feedback (60-min TTL)
+│   │   └── signal_outcomes.py   # Phase 3.5 — per-token outcome rows + historical summary for rationale
 │   ├── routes/
 │   │   ├── tokens.py            # GET /api/tokens, GET /api/tokens/:address
 │   │   ├── actions.py           # GET /api/actions/pending, POST /api/actions/approve, POST /api/actions/reject
@@ -86,7 +88,7 @@ meme-guard/
 │   │   ├── avoided.py           # GET /api/avoided
 │   │   ├── watchlist.py         # GET/POST/DELETE /api/watchlist
 │   │   ├── agent.py             # ERC-8004 identity endpoints
-│   │   └── chat.py              # POST /api/chat, DELETE /api/chat/history
+│   │   └── chat.py              # POST /api/chat, GET/DELETE /api/chat/history (Phase 3.5: scoped by token_address + scope=current|all)
 │   ├── abis/                    # Contract ABIs (JSON, lite versions)
 │   └── requirements.txt
 ├── frontend/
@@ -131,13 +133,13 @@ meme-guard/
 
 ---
 
-## 6. Current Status — Phase 3 (Polish & Demo)
+## 6. Current Status — Phase 3.5 Complete
 
 **Spec rename:** `Memeguard.md` is now `FourScout.md`. A new §18 "Roadmap: Non-Custodial Session Keys" documents the post-hackathon evolution from single-tenant self-hosted (one `PRIVATE_KEY`) to multi-tenant ERC-4337 session keys. Phase 4 in `TODO.md` tracks that scope as design-only — no implementation in the current branch.
 
-**Phase 2 verified, Phase 3 complete.** Avoided tracker is populating live (39+ red-flagged tokens, price history filling naturally over 1h/6h/24h). Wallet-gated smoke test passed (position_id 4, tx `0x8a9e…dbdb`). Public landing page shipped at `/`, Dashboard moved to `/dashboard`. Gemini cost-reduction pass shipped (`f4523b4`) — awaiting a final live-LLM verification before deploy + demo recording (see TODO Phase 3).
+**Phase 3 verified + Phase 3.5 complete.** Avoided tracker populating live. Wallet-gated smoke test passed (position_id 4, tx `0x8a9e…dbdb`). Gemini cost-reduction verified live against refreshed key. Phase 3.5 "agent memory & continuity" shipped across seven narrow commits (`1896754..7bcb09a`, A–G) and verified end-to-end via Docker smoketest + Playwright UI pass. Deploy + demo recording are the remaining Phase 3 items.
 
-### COMPLETE (latest commit: `5449098`)
+### COMPLETE (latest commit: `7bcb09a`)
 
 **Buy loop (verified end-to-end with real BNB):**
 - Scanner discovers tokens → risk engine scores with 8 signals → persona engine proposes buy → approval gate creates pending_action with CLI quote preview → user approves → executor gets fresh quote with slippage protection → CLI buys on-chain → position recorded with correct token quantity → position tracker monitors PnL every 60s
@@ -179,16 +181,16 @@ meme-guard/
 **Phase 3 — Polish & Demo Features (see TODO.md):**
 - [x] ERC-8004 agent identity registration, "What I Avoided" tracker (live, 39+), risk radar chart, behavioral nudge, watchlist UI, real volume signal (wash-trading detection), visual polish, README, landing page
 - [x] Wallet-gated smoke test (8004 register + trade approve via MetaMask) — position_id 4, tx `0x8a9e…dbdb`
-- [x] Gemini cost-reduction pass (`f4523b4`)
-- [ ] Live-LLM verification of cost-reduction changes (blocked on refreshed Gemini key — 4 checks: chat reply path, output-token caps not truncated, `_should_call_ai` cooldown suppression, `AI_EXIT_INTERVAL_CYCLES` cadence). **Blocks deploy + demo.**
+- [x] Gemini cost-reduction pass (`f4523b4`) + live-LLM verification (2026-04-17, commit `b8ce0a5`)
 - [ ] Deployment (Docker artifacts added; Vercel + Railway/Render still to provision)
 - [ ] Demo video + DoraHacks BUIDL submission
 
-**Phase 3.5 — Agent Memory & Continuity (NOT STARTED):**
-Motivated by the Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop. Full design in `.claude/plans/tidy-mixing-marble.md`. Six work items across three layers:
-- **Persistent interaction memory:** `chat_messages` table (per-token scoped, survives restart); `pending_actions.rejection_reason` column captures *why* users reject
-- **Closed feedback loops:** override-aware nudge in persona-engine rationale (via new `services/override_stats.py`); persist AI exit-check cooldown to `positions.last_ai_check_at` + `last_ai_pnl_pct`
-- **Learning loops:** `creator_reputation` cache table with outcome feedback on close + rug confirmation; `signal_outcomes` tracker paired with backfill migration so the LLM rationale can cite historical accuracy on every scan
+**Phase 3.5 — Agent Memory & Continuity (COMPLETE, commits `1896754..7bcb09a`):**
+Motivated by the Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop. Shipped in seven narrow commits (A–G).
+- **Persistent interaction memory:** `chat_messages` table (per-token scoped, survives restart) replaces the in-memory list in `chat_service.py`; `pending_actions.rejection_reason` captures *why* users reject; Dashboard surfaces top reject reasons (last 7d) under Override Summary.
+- **Closed feedback loops:** override-aware nudge appended to persona-engine rationale (via `services/override_stats.py`); AI exit-check cooldown persisted on the `positions` row (`last_ai_check_at`, `last_ai_pnl_pct`) — restart-storm eliminated.
+- **Learning loops:** `creator_reputation` cache table (60-min TTL) with outcome feedback on close + rug confirmation — scoring folds `rugs`, `losing_closes`, `profitable_closes` into the creator signal; `signal_outcomes` tracker paired with backfill migration feeds a one-line historical summary into the rationale on every scan (works in both LLM and deterministic-fallback paths).
+- **Verification:** all four demo-visible surfaces verified end-to-end via Docker smoketest + Playwright UI pass on 2026-04-18 (chat persists across `docker restart`; per-token scope isolated; rejection reason surfaces on Dashboard; override nudge appears in rationale).
 
 **Phase 4 — Non-Custodial Session Keys (roadmap only, not started):**
 - Design documented in `FourScout.md` §18. Stack: ZeroDev Kernel v3 + `@zerodev/permissions` + Pimlico on BSC. Introduces a Node.js `session-signer/` sidecar alongside `fourmeme-cli/`. Backend would swap CLI-subprocess signing for bundler userOps while keeping read-only CLI commands unchanged. All persona rules, approval modes, and budget caps preserved — session keys are a signing mechanism swap, not a policy rewrite.
@@ -349,20 +351,25 @@ Full analysis at `COMPETITIVE_ANALYSIS.md`. Key patterns adopted from BuildersCl
 ## 16. Git History
 
 ```
+7bcb09a Phase 3.5-G: signal accuracy tracker feeds rationale
+59c0a49 Phase 3.5-F: creator reputation cache with outcome feedback
+ed43b34 Phase 3.5-E: persist AI exit-check cooldown on positions row
+500cada Phase 3.5-D: override-aware nudge in proposal rationale
+f194d16 Phase 3.5-C: capture and surface rejection reasons
+a4f94ea Phase 3.5-B: persist chat memory per scope
+1896754 Phase 3.5-A: schema foundation for agent memory
+4d49355 Input hardening + avoided-tracker slot-matching fix
+cb1ec66 Perf polish: DB indexes, lower RPC holder cap, TTL-cache config
+2506884 Executor: re-validate budget + abort on empty tx_hash
+709f954 Fix async/sync boundary: wrap blocking calls with asyncio.to_thread
+0280dc4 Deploy hardening: env-driven CORS + shared-secret auth
+b8ce0a5 Mark Phase 3 LLM cost-reduction verification complete
+cad4928 Plan Phase 3.5: agent memory & continuity (queued behind verify + deploy)
+d484910 Update HANDOFF.md: landing page, cost reduction, wallet test, Phase 3 status
 5449098 Update FourScout.md: Docker, landing page, cost-reduction cadence, file structure
 f4523b4 Reduce Gemini cost: exit-AI cooldown, tighter drift bands, output caps
 10b89e8 Add public marketing landing page at /, move Dashboard to /dashboard
 7f3edf7 Trim activity feed, add clickable toasts + notification history
-2f49cca Update FourScout.md phases + TODO wallet-gated test passed
-cf04595 Rename spec to FourScout, add session-key roadmap, add Docker self-host
-140b476 Update TODO with Phase 3 verification results
-295bd0f Fix SQLite write contention and force-RED ghost tokens
-3476eb4 Fix event loop blocking by running sync web3 signals in threads
-8cf672a Fix token name display, SQLite concurrency, and sell execution flow
-7be3a3d Phase 3: ERC-8004 identity, avoided tracker, risk radar, behavioral nudge, watchlist UI, volume signal, visual polish
-f09ec95 Fix 6 bugs from codebase review: type safety, race condition, input validation
-29d3c45 Rename to FourScout, migrate to Gemini 2.5 Flash, fix thinking-mode truncation
-db7b0b5 Complete sell flow, AI position monitoring, auto-sell, toast notifications, and handoff doc
 ```
 
 **All changes are committed and pushed.** No uncommitted work.

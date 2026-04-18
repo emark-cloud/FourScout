@@ -58,11 +58,21 @@ Grades: **GREEN** (>=65%) | **AMBER** (40-65%) | **RED** (<40%)
 
 ### AI-Powered Features
 
-- **Interactive AI Advisor** -- context-aware chat that knows your positions, risk data, and persona config
+- **Interactive AI Advisor** -- context-aware chat that knows your positions, risk data, and persona config. Chat history persists across restarts and is scoped per-token (global from Dashboard, per-token on OpportunityDetail).
 - **Multi-signal Narrative Synthesis** -- correlates signals into coherent stories ("serial creator + high concentration = pump-and-dump setup")
 - **AMBER Escalation Pipeline** -- deep AI analysis only for ambiguous tokens, with lean_buy/lean_skip/watch recommendations
-- **AI-driven Position Monitoring** -- Gemini analyzes positions every 5 min when drift triggers fire
+- **AI-driven Position Monitoring** -- Gemini analyzes positions every 5 min when drift triggers fire; per-position cooldown persisted on the positions row so restarts don't re-burn LLM budget
 - **"What I Avoided" Tracker** -- background job checks red-flagged token prices at 1h/6h/24h, confirms rugs, calculates savings
+
+### Agent Memory & Continuity
+
+FourScout is explicitly designed around the `input → reason → act → memory update` loop. State survives restart and feeds future decisions:
+
+- **Persistent chat memory** -- per-token and global conversations backed by the `chat_messages` table
+- **Rejection reason capture** -- reject a proposal with a reason; top reasons (last 7 days) surface on the Dashboard so the user sees their own pattern
+- **Override-aware nudge** -- proposal rationale appends a one-line observation like *"You've approved 3 AMBER tokens in the last 7 days; 2 closed at a loss >20%"* without changing the deterministic decision
+- **Creator reputation cache** -- 60-min TTL cache with outcome feedback; confirmed rugs and losing closes fold back into the creator signal so repeat offenders score worse over time
+- **Signal accuracy tracker** -- every closed trade and every 24h-resolved avoided token produces a `signal_outcomes` row; the rationale cites historical accuracy for tokens of the same shape ("Historical (30d): 4 prior AMBER tokens with a creator-score 0-3 — 3 closed at >20% loss, 1 confirmed rug")
 
 ### Safety & Controls
 
@@ -187,7 +197,10 @@ meme-guard/
 │   │   ├── approval_gate.py     # 4 approval modes
 │   │   ├── position_tracker.py  # PnL + AI exit analysis + auto-sell
 │   │   ├── avoided_tracker.py   # Price tracking for red-flagged tokens
-│   │   └── agent_identity.py    # ERC-8004 registration
+│   │   ├── agent_identity.py    # ERC-8004 registration
+│   │   ├── override_stats.py    # Override pattern aggregates → persona nudge
+│   │   ├── creator_reputation.py # Cached creator score w/ outcome feedback
+│   │   └── signal_outcomes.py   # Signal accuracy tracker + historical summary
 │   └── routes/                  # API endpoints
 ├── frontend/
 │   ├── src/

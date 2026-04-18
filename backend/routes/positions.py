@@ -129,7 +129,22 @@ async def manual_sell(position_id: int):
     from services.executor import execute_approved_action
     result = await execute_approved_action(action_dict, ws_manager)
 
-    return {"status": "approved", "action_id": action_id, "result": result}
+    if result.get("status") != "executed":
+        db2 = await get_db()
+        try:
+            await db2.execute(
+                "UPDATE pending_actions SET status = 'failed' WHERE id = ?",
+                (action_id,),
+            )
+            await db2.commit()
+        finally:
+            await db2.close()
+        return JSONResponse(
+            content={"status": "failed", "action_id": action_id, "result": result},
+            status_code=502,
+        )
+
+    return {"status": "executed", "action_id": action_id, "result": result}
 
 
 @router.get("/trades/daily")

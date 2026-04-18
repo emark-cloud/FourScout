@@ -94,7 +94,7 @@
 - [x] ERC-8004 agent identity registration (`agent_identity.py` + Settings UI section + on-chain verification)
 - [x] "What I Avoided" background job: check red-flagged token prices at 1h/6h/24h, confirmed rug detection, `avoided_update` toast
 - [x] Risk visualization: radar chart for 8-signal breakdown (recharts RadarChart on OpportunityDetail)
-- [ ] Deployment: Backend `Dockerfile` + `docker-compose.yml` (Python + Node.js for Four.meme CLI, SQLite volume mount) → Railway / Render / self-host; Frontend → Vercel (`VITE_API_BASE` → backend URL). See README "Deployment" section.
+- [x] Deployment: Backend `Dockerfile` + `docker-compose.yml` shipped. Backend on Railway (https://fourscout-production.up.railway.app) with persistent volume at `/app/data`; frontend on Vercel (https://four-scout.vercel.app). CORS + shared-secret auth + WSS verified end-to-end (2026-04-18).
 
 ### Medium Priority (Completeness)
 - [x] Behavioral nudge: track overrides (approve risky / reject safe), show outcome summary on Dashboard

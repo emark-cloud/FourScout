@@ -847,23 +847,23 @@ CREATE INDEX idx_signal_outcomes_grade ON signal_outcomes (entry_risk_grade, rec
 - [ ] Demo video recording (3-5 min, see demo script below)
 - [ ] DoraHacks BUIDL submission (GitHub repo + demo video link)
 
-### Phase 3.5 — Agent Memory & Continuity (NOT STARTED)
+### Phase 3.5 — Agent Memory & Continuity (COMPLETE)
 
-**Goal:** Close the memory loops so FourScout remembers past interactions, maintains state across restarts, and has its judgment improve as trades close. Full design in `.claude/plans/tidy-mixing-marble.md`. Motivated by Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop.
+**Goal:** Close the memory loops so FourScout remembers past interactions, maintains state across restarts, and has its judgment improve as trades close. Motivated by Four.meme team AMA guidance on state, continuity, and the `input → reason → act → memory update` loop. Full design in `.claude/plans/tidy-mixing-marble.md`. Shipped across commits `1896754..7bcb09a`.
 
 #### Persistent interaction memory
-- [ ] `chat_messages` table — replace in-memory `_chat_history` with DB-backed, per-token-scoped chat history
-- [ ] `pending_actions.rejection_reason` column — capture *why* users reject; surface top 3 reasons on Behavioral Nudge card
+- [x] `chat_messages` table `(id, token_address NULLABLE, role, content, created_at)` with index on `(token_address, id)`; `chat_service.py` now DB-backed and scope-aware (NULL = global dashboard, non-null = per-token). `DELETE /api/chat/history?scope=current|all` + `GET /api/chat/history` added; frontend ChatPanel loads scoped history on open.
+- [x] `pending_actions.rejection_reason TEXT` column; `POST /api/actions/reject` accepts optional `{ reason }` (500 char max); Dashboard Override Summary card surfaces top reasons (last 7d) via `GET /api/overrides/rejection_reasons`.
 
 #### Closed feedback loops
-- [ ] Override-aware nudge via new `backend/services/override_stats.py` helper — append past-behavior summary to persona-engine rationale without changing decisions
-- [ ] Persist AI exit-check cooldown to `positions.last_ai_check_at` + `last_ai_pnl_pct` — fix restart-storm of LLM calls
+- [x] Override-aware nudge appended to persona-engine buy-proposal rationales via new `backend/services/override_stats.py` (`get_recent_pattern`, `build_nudge_line`). Pure observability — the deterministic persona decision is never changed.
+- [x] `positions.last_ai_check_at` + `last_ai_pnl_pct` columns added; `position_tracker._should_call_ai` reads/writes the row and the in-memory `_last_ai_check` dict was removed. Restart no longer triggers a fresh LLM exit check for every open position.
 
 #### Learning loops (improves over time)
-- [ ] `creator_reputation` table — cache creator-history BSC query (1h TTL), update on position close + avoided rug confirmation, fold counters back into creator signal score
-- [ ] `signal_outcomes` table — pair entry signal pattern with outcome (trade PnL% or avoided 24h price change). Feed aggregate into LLM rationale + deterministic fallback. Backfill on startup from existing closed positions + 24h-resolved avoided rows.
+- [x] `creator_reputation` table `(creator_address PK, launch_count, avg_24h_outcome_pct, confirmed_rugs, profitable_closes, losing_closes, last_updated)` + `backend/services/creator_reputation.py` (60-min TTL). `risk_engine.score_creator_history` is cache-first; `executor.py` calls `record_close(creator, pnl)` on position close; `avoided_tracker.py` calls `record_rug(creator)` on 24h rug confirmation. Creator score folds `penalty = min(4, 2*rugs + losing)` and `bonus = min(3, profitable)` so repeat offenders score worse.
+- [x] `signal_outcomes` table + `backend/services/signal_outcomes.py` (`record_trade_close`, `record_avoided_24h`, `get_historical_summary`). `executor.py` writes a `trade_closed` row on sell-close; `avoided_tracker.py` writes an `avoided_24h` row when the 24h slot fills. `risk_engine.score_token` appends a one-line historical summary to the rationale (works in both LLM and deterministic-fallback paths). Startup migration backfills from existing closed positions + 24h-resolved avoided rows.
 
-#### Out of scope
+#### Out of scope (deliberate)
 - Semantic/vector chat memory, RL-style policy updates, populating dormant `token_snapshots` table, cross-session user profile learning, active agent-to-agent coordination (ERC-8004 discovery is enough for MVP)
 
 ---
@@ -939,7 +939,7 @@ Projects are evaluated through **expert review (70%)** and **community voting (3
 ## 15. File Structure
 
 ```
-meme-guard/
+FourScout/
 ├── backend/
 │   ├── main.py                    # FastAPI app + WebSocket + lifespan (init DB, start scanner)
 │   ├── config.py                  # Pydantic Settings from .env + Contracts + BudgetDefaults

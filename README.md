@@ -61,7 +61,7 @@ Grades: **GREEN** (>=65%) | **AMBER** (40-65%) | **RED** (<40%)
 - **Interactive AI Advisor** -- context-aware chat that knows your positions, risk data, and persona config. Chat history persists across restarts and is scoped per-token (global from Dashboard, per-token on OpportunityDetail).
 - **Multi-signal Narrative Synthesis** -- correlates signals into coherent stories ("serial creator + high concentration = pump-and-dump setup")
 - **AMBER Escalation Pipeline** -- deep AI analysis only for ambiguous tokens, with lean_buy/lean_skip/watch recommendations
-- **AI-driven Position Monitoring** -- Gemini analyzes positions every 5 min when drift triggers fire; per-position cooldown persisted on the positions row so restarts don't re-burn LLM budget
+- **AI-driven Position Monitoring** -- deterministic TP/SL check every 60s; Gemini exit analysis batch runs every 10 cycles (~10 min, configurable via `AI_EXIT_INTERVAL_CYCLES`), gated by drift triggers, capped at 3 LLM calls per batch. Per-position cooldown (15 min / 3% PnL delta) is persisted on the positions row so restarts don't re-burn LLM budget.
 - **"What I Avoided" Tracker** -- background job checks red-flagged token prices at 1h/6h/24h, confirms rugs, calculates savings
 
 ### Agent Memory & Continuity
@@ -192,7 +192,7 @@ The next step toward a hosted, multi-user product is **non-custodial session key
 ## Project Structure
 
 ```
-meme-guard/
+FourScout/
 ├── backend/
 │   ├── main.py                  # FastAPI app + WebSocket + background tasks
 │   ├── config.py                # Pydantic Settings

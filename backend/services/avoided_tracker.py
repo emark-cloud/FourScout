@@ -32,13 +32,17 @@ async def check_avoided_tokens(web3: BSCWeb3Client, ws_manager):
     """Check price updates for all avoided tokens that still need tracking."""
     db = await get_db()
     try:
-        # Get tokens that still need price checks (missing 1h, 6h, or 24h data)
+        # Get tokens that still need price checks (missing 1h, 6h, or 24h data).
+        # ORDER BY ASC (oldest first): under sustained flag volume a DESC order
+        # starves older rows — LIMIT 20 keeps pulling the newest flags whose
+        # slots aren't due yet, so rows that are actually past 1h/6h/24h never
+        # get checked. Oldest-first ensures due slots get filled first.
         cursor = await db.execute(
             """SELECT * FROM avoided
                WHERE price_1h_later IS NULL
                   OR price_6h_later IS NULL
                   OR price_24h_later IS NULL
-               ORDER BY flagged_at DESC
+               ORDER BY flagged_at ASC
                LIMIT 20"""
         )
         tokens = [dict(row) for row in await cursor.fetchall()]

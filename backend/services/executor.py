@@ -183,22 +183,56 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
             position_id = position["id"] if position else None
             entry_amount = float(position["entry_amount_bnb"]) if position else amount_bnb
 
-            # Get sell quote for slippage protection
-            slippage_pct = float(action.get("slippage", 5))
-            min_funds_wei = "0"
-            estimated_funds = 0
-            try:
-                quote = await cli.quote_sell(token_address, amount_wei)
-                if not isinstance(quote, dict):
-                    quote = {}
-                estimated_funds = int(quote.get("estimatedCost", 0) or quote.get("estimatedAmount", 0) or 0)
-                if estimated_funds > 0:
-                    min_funds_wei = str(int(estimated_funds * (1 - slippage_pct / 100)))
-            except Exception as e:
-                print(f"[Executor] Sell quote failed, proceeding without slippage protection: {e}")
+            # Decide venue: if the token has graduated (liquidityAdded=True on
+            # getTokenInfo), its Four.meme bonding curve is closed and
+            # `fourmeme sell` will revert. Route to PancakeSwap V2 instead.
+            info = await asyncio.to_thread(web3_client.get_token_info, token_address)
+            is_graduated = bool(info.get("liquidityAdded"))
 
-            result = await cli.sell(token_address, amount_wei, min_funds_wei)
-            tx_hash = result.get("txHash", result.get("hash", ""))
+            slippage_pct = float(action.get("slippage", 5))
+            estimated_funds = 0
+            venue = "fourmeme"
+
+            if is_graduated:
+                venue = "pancakeswap"
+                from clients.pancake_v2 import PancakeV2Client
+                # Tax tokens need the fee-on-transfer swap variant; the standard
+                # one reverts on any transfer-side fee.
+                tax = await asyncio.to_thread(web3_client.is_tax_token, token_address)
+                is_fee_on_transfer = bool(tax.get("is_tax"))
+
+                pancake = PancakeV2Client()
+                try:
+                    estimated_funds = await asyncio.to_thread(
+                        pancake.quote_sell, token_address, int(amount_wei)
+                    )
+                except Exception as e:
+                    print(f"[Executor] Pancake quote failed, no slippage protection: {e}")
+                min_funds_wei = int(estimated_funds * (1 - slippage_pct / 100)) if estimated_funds > 0 else 0
+
+                result = await asyncio.to_thread(
+                    pancake.sell_to_bnb,
+                    token_address,
+                    int(amount_wei),
+                    min_funds_wei,
+                    is_fee_on_transfer,
+                )
+                tx_hash = result.get("txHash", "")
+            else:
+                # Get sell quote for slippage protection
+                min_funds_wei = "0"
+                try:
+                    quote = await cli.quote_sell(token_address, amount_wei)
+                    if not isinstance(quote, dict):
+                        quote = {}
+                    estimated_funds = int(quote.get("estimatedCost", 0) or quote.get("estimatedAmount", 0) or 0)
+                    if estimated_funds > 0:
+                        min_funds_wei = str(int(estimated_funds * (1 - slippage_pct / 100)))
+                except Exception as e:
+                    print(f"[Executor] Sell quote failed, proceeding without slippage protection: {e}")
+
+                result = await cli.sell(token_address, amount_wei, min_funds_wei)
+                tx_hash = result.get("txHash", result.get("hash", ""))
 
             # Compute exit values from quote
             exit_amount_bnb = estimated_funds / 10**18 if estimated_funds > 0 else 0
@@ -237,6 +271,7 @@ async def execute_approved_action(action: dict, ws_manager=None) -> dict:
                 ("trade_executed", token_address, json.dumps({
                     "side": "sell", "amount_bnb": round(exit_amount_bnb, 8),
                     "tx_hash": tx_hash, "pnl_bnb": round(pnl, 8),
+                    "venue": venue,
                 }), now),
             )
             await db.commit()

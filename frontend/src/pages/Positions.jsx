@@ -130,6 +130,7 @@ export default function Positions() {
                 <th className="text-right px-4 py-3 font-medium">Current</th>
                 <th className="text-right px-4 py-3 font-medium">Amount</th>
                 <th className="text-right px-4 py-3 font-medium">PnL</th>
+                <th className="text-right px-4 py-3 font-medium">Tx</th>
                 <th className="text-right px-4 py-3 font-medium">Status</th>
                 <th className="text-right px-4 py-3 font-medium">Action</th>
               </tr>
@@ -154,6 +155,30 @@ export default function Positions() {
                     </td>
                     <td className={`text-right px-4 py-3 font-medium ${pnlColor(pos.pnl_bnb)}`}>
                       {pos.pnl_bnb != null ? `${pos.pnl_bnb > 0 ? '+' : ''}${pos.pnl_bnb.toFixed(4)} BNB` : '-'}
+                    </td>
+                    <td className="text-right px-4 py-3">
+                      {pos.trades && pos.trades.length > 0 ? (
+                        <div className="flex gap-1.5 justify-end flex-wrap">
+                          {pos.trades.map((t, i) => (
+                            <a
+                              key={`${t.tx_hash}-${i}`}
+                              href={`https://bscscan.com/tx/${t.tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`${t.side.toUpperCase()} • ${t.tx_hash}`}
+                              className={`text-xs font-mono px-1.5 py-0.5 rounded no-underline border ${
+                                t.side === 'buy'
+                                  ? 'text-[#0ECB81] border-[rgba(14,203,129,0.3)] hover:bg-[rgba(14,203,129,0.1)]'
+                                  : 'text-[#F6465D] border-[rgba(246,70,93,0.3)] hover:bg-[rgba(246,70,93,0.1)]'
+                              }`}
+                            >
+                              {t.side === 'buy' ? 'B' : 'S'} {t.tx_hash.slice(0, 6)}↗
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--text-secondary)]">-</span>
+                      )}
                     </td>
                     <td className="text-right px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded capitalize ${
@@ -186,7 +211,7 @@ export default function Positions() {
                   </tr>
                   {pos.pending_sell && (
                     <tr className="border-b border-[var(--border)] bg-[rgba(246,70,93,0.05)]">
-                      <td colSpan={7} className="px-4 py-3">
+                      <td colSpan={8} className="px-4 py-3">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <span className="text-xs font-semibold text-[#F6465D] mr-2">SELL PROPOSED</span>

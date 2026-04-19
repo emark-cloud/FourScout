@@ -51,6 +51,16 @@ async def list_positions(
             else:
                 pos["pending_sell"] = None
 
+            # Attach on-chain trade receipts so the UI can link to BscScan.
+            trades_cursor = await db.execute(
+                """SELECT side, tx_hash, amount_bnb, executed_at
+                   FROM trades
+                   WHERE position_id = ? AND tx_hash IS NOT NULL AND tx_hash != ''
+                   ORDER BY executed_at ASC""",
+                (pos["id"],),
+            )
+            pos["trades"] = [dict(r) for r in await trades_cursor.fetchall()]
+
         return positions
     finally:
         await db.close()

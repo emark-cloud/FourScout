@@ -435,7 +435,11 @@ async def set_config_value(key: str, value: str):
     """Set a config value."""
     async with aiosqlite.connect(get_db_path()) as db:
         await db.execute("PRAGMA journal_mode=WAL")
-        await db.execute("PRAGMA busy_timeout=5000")
+        # Config writes are rare and must not fail under heavy background
+        # writer contention (scanner, avoided-tracker, position-tracker).
+        # A longer wait costs nothing when uncontested and avoids spurious
+        # 500s from the Settings UI when a background commit is in flight.
+        await db.execute("PRAGMA busy_timeout=15000")
         await db.execute(
             "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
             (key, value),

@@ -52,10 +52,14 @@ async def check_avoided_tokens(web3: BSCWeb3Client, ws_manager):
         for token in tokens:
             try:
                 await _check_token_price(db, web3, ws_manager, token, now)
+                # Commit per token so each on-chain call isn't held inside a
+                # single long write transaction. The full loop can take 5–10s
+                # of Web3 latency, which was long enough to exceed the 5s
+                # busy_timeout on config writes and 500 the /config/bulk
+                # endpoint from the Settings UI.
+                await db.commit()
             except Exception as e:
                 print(f"[AvoidedTracker] Error checking {token['token_address']}: {e}")
-
-        await db.commit()
     finally:
         await db.close()
 

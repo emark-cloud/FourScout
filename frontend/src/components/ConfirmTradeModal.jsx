@@ -95,8 +95,10 @@ export default function ConfirmTradeModal({
               onChange={(e) => setAmount(e.target.value)}
               className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent-gold)]"
             />
-            <div className="text-xs text-[var(--text-secondary)] mt-2">
-              Between {minBnb} and {maxBnb} BNB
+            <div className={`text-xs mt-2 ${amountValid ? 'text-[var(--text-secondary)]' : 'text-[#F6465D]'}`}>
+              {amountValid
+                ? `Between ${minBnb} and ${maxBnb} BNB`
+                : `Amount must be between ${minBnb} and ${maxBnb} BNB`}
             </div>
           </>
         ) : (

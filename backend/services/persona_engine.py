@@ -62,11 +62,16 @@ async def decide_action(
     persona = PERSONA_CONFIGS.get(persona_name, PERSONA_CONFIGS["momentum"])
 
     max_per_trade = float(config.get("max_per_trade_bnb", 0.05))
+    min_per_trade = float(config.get("min_per_trade_bnb", 0.002))
     max_per_day = float(config.get("max_per_day_bnb", 0.3))
     max_positions = int(config.get("max_active_positions", 3))
     max_slippage = float(config.get("max_slippage_pct", 5.0))
 
-    amount = min(persona["default_amount_bnb"], max_per_trade)
+    # Clamp within [min_per_trade, max_per_trade]. The hardcoded persona
+    # defaults (0.0001 BNB) are below typical min_per_trade settings; without
+    # raising to the floor the approval modal's amount validator rejects the
+    # preset and the Buy button silently disables.
+    amount = max(min_per_trade, min(persona["default_amount_bnb"], max_per_trade))
 
     # Hard budget checks
     if budget_used_today + amount > max_per_day:
